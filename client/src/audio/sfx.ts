@@ -20,7 +20,7 @@ export class Sfx {
       const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       this.ctx = new Ctor();
       this.master = this.ctx.createGain();
-      this.master.gain.value = 0.5;
+      this.master.gain.value = 0.32;
       this.master.connect(this.ctx.destination);
 
       const len = Math.floor(this.ctx.sampleRate * 0.4);
@@ -41,7 +41,7 @@ export class Sfx {
     this.enabled = on;
 
     if (this.master) {
-      this.master.gain.setTargetAtTime(on ? 0.5 : 0, this.ctx!.currentTime, 0.03);
+      this.master.gain.setTargetAtTime(on ? 0.32 : 0, this.ctx!.currentTime, 0.03);
     }
   }
 
@@ -89,8 +89,8 @@ export class Sfx {
     if (now - this.lastStep < 0.22) return;
 
     this.lastStep = now;
-    this.tone(90 + Math.random() * 40, 0.07, 0.05, 'sine', 0.5);
-    this.noise(0.05, 0.05, 900 + Math.random() * 300);
+    this.tone(80 + Math.random() * 30, 0.06, 0.28, 'sine', 0.4);
+    this.noise(0.04, 0.03, 800 + Math.random() * 250);
   }
 
   private tone(freq: number, dur: number, gainValue: number, type: OscillatorType, attack: number) {

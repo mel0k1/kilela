@@ -1,7 +1,11 @@
 const PLAYLISTS: Record<string, string[]> = {
-  meadow: ['bossanova.mp3', 'clop.mp3', 'fivefour.mp3', 'scherzo.mp3', 'trills.mp3', 'waltzalt.mp3'],
-  forest: ['trees.mp3', 'trills.mp3', 'scherzo.mp3'],
+  meadow: [
+    'bossanova.mp3', 'clop.mp3', 'fivefour.mp3', 'hypnosis.mp3', 'scherzo.mp3',
+    'trills.mp3', 'waltzalt.mp3', 'orchid.mp3', 'season.mp3', 'ambient.mp3', 'building.mp3',
+  ],
+  forest: ['trees.mp3', 'trills.mp3', 'scherzo.mp3', 'orchid.mp3'],
   peaks: ['reindeer-winter.mp3', 'trees-winter.mp3'],
+  cave: ['cave-crystals.mp3', 'cave-secrets.mp3'],
 };
 
 const FADE_MS = 1000;
