@@ -371,7 +371,7 @@ export function randomLook(): Look {
     muzzle: 0,
     wings: Math.random() < 0.25 ? 1 : 0,
     wingsColor: 0,
-    horn: Math.random() < 0.2 ? 1 : 0,
+    horn: Math.random() < 0.25 ? Math.floor(Math.random() * hornCount()) : 0,
     hooves: 0,
     cm: Math.random() < 0.8 ? Math.floor(Math.random() * CUTIE_MARKS.length) : 0,
     cmColor: pick(maneColors),

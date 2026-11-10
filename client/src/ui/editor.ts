@@ -3,7 +3,7 @@ import { PonyActor } from '../pony/anim';
 import { drawPonyToCanvas } from '../pony/draw';
 import {
   buildPaletteLook, encodeLook, EXPRESSION_PRESETS, CUTIE_MARKS, randomLook,
-  maneCount, backManeCount, tailCount, wingsCount, earsCount, facialHairCount,
+  maneCount, backManeCount, tailCount, wingsCount, hornCount, earsCount, facialHairCount,
   headAccessoryCount, chestAccessoryCount, backAccessoryCount, legAccessoryCount,
   type Look,
 } from '../pony/look';
@@ -72,8 +72,9 @@ export class Editor {
       this.refreshAll();
     });
 
-    this.tabsRow = el('div', 'editor-tabs', content);
-    this.body = el('div', 'editor-body', content);
+    const right = el('div', 'editor-right', content);
+    this.tabsRow = el('div', 'editor-tabs', right);
+    this.body = el('div', 'editor-body', right);
 
     const footer = el('div', 'editor-footer', panel);
     const closeButton = el('button', 'btn', footer);
@@ -247,14 +248,12 @@ export class Editor {
 
       const hornLabel = el('div', 'editor-row-label', this.body);
       hornLabel.textContent = 'Рог';
-      const hornToggle = el('button', 'btn small' + (look.horn ? ' active' : ''), this.body);
-      hornToggle.textContent = look.horn ? 'Единорог' : 'Пони';
-      hornToggle.addEventListener('click', () => {
-        look.horn = look.horn ? 0 : 1;
-        hornToggle.textContent = look.horn ? 'Единорог' : 'Пони';
-        hornToggle.classList.toggle('active', !!look.horn);
-        this.scheduleRefresh();
-      });
+      this.optionGrid(this.body, hornCount(), look.horn, 'Нет',
+        i => ({ ...look, horn: i }),
+        i => {
+          look.horn = i;
+          this.scheduleRefresh();
+        });
 
       const earsLabel = el('div', 'editor-row-label', this.body);
       earsLabel.textContent = 'Ушки';

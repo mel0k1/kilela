@@ -367,6 +367,13 @@ button {
   z-index: 1;
 }
 
+.editor-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .editor-tabs {
   display: flex;
   gap: 6px;
