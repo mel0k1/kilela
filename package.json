@@ -1,0 +1,24 @@
+{
+  "name": "kilela",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Маленькая браузерная игра про пони в духе Pony Town",
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit -p server && tsc --noEmit -p client",
+    "build": "vite build client",
+    "dev:server": "npm run dev -w server",
+    "dev:client": "npm run dev -w client",
+    "start": "npm run start -w server"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
