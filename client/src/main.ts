@@ -5,6 +5,7 @@ import { Game } from './game/game';
 import { showLogin } from './ui/login';
 import { Editor } from './ui/editor';
 import { Hud } from './ui/hud';
+import { sfx } from './audio/sfx';
 
 const MAP_SKY: Record<string, number> = {
   meadow: 0xa5dcf2,
@@ -37,6 +38,7 @@ async function boot() {
 
 function startGame(app: Application, name: string, look: Look) {
   let currentLook = look;
+  let photoMode = false;
 
   const music = new Audio();
   music.volume = 0.45;
@@ -84,10 +86,68 @@ function startGame(app: Application, name: string, look: Look) {
         },
       });
     },
+    onPhotoToggle() {
+      togglePhoto();
+    },
+    onSoundToggle() {
+      const on = !sfx.enabled;
+      sfx.resume();
+      sfx.setEnabled(on);
+      hud.setSoundOn(on);
+      sfx.play('click');
+    },
     onLogout() {
       music.pause();
       location.reload();
     },
+  });
+
+  function togglePhoto() {
+    photoMode = !photoMode;
+    document.body.classList.toggle('photo-mode', photoMode);
+    hud.root.style.display = photoMode ? 'none' : '';
+    game.view.setPhotoMode(photoMode);
+    sfx.play('pop');
+
+    if (photoMode) {
+      showPhotoHint();
+    }
+  }
+
+  function shootPhoto() {
+    const canvas = app.renderer.extract.canvas(app.stage) as HTMLCanvasElement;
+    const link = document.createElement('a');
+    link.download = `kilela-${Date.now()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    sfx.play('pop');
+  }
+
+  function showPhotoHint() {
+    const hint = document.createElement('div');
+    hint.className = 'photo-hint';
+    hint.textContent = 'Фоторежим: P — выйти, C — сохранить снимок';
+    document.body.appendChild(hint);
+    window.setTimeout(() => hint.remove(), 3500);
+  }
+
+  window.addEventListener('keydown', e => {
+    if (document.activeElement && (document.activeElement as HTMLElement).tagName === 'INPUT') {
+      return;
+    }
+
+    const key = e.key.toLowerCase();
+
+    if (key === 'p' || key === 'з') {
+      togglePhoto();
+    } else if (photoMode && (key === 'c' || key === 'с')) {
+      shootPhoto();
+    } else if (key === 'm' || key === 'ь') {
+      const on = !sfx.enabled;
+      sfx.resume();
+      sfx.setEnabled(on);
+      hud.setSoundOn(on);
+    }
   });
 
   app.ticker.add(() => {

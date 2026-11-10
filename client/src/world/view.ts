@@ -57,6 +57,10 @@ export class WorldView {
   private pathTexture: Texture | undefined;
   private treeTextures: Texture[] = [];
   private trees: TreeDef[] = [];
+  private treeSprites: Sprite[] = [];
+  private treeShadowSprites: Sprite[] = [];
+  private shadowTexture: Texture | undefined;
+  private fireflies: Sprite[] = [];
   private map: MapDef = getMap('meadow');
   readonly entities = new Map<number, EntityView>();
   private fogSprites: Sprite[] = [];
@@ -88,6 +92,18 @@ export class WorldView {
     this.warmRect.rect(0, 0, 4000, 4000).fill(0xff8c3c);
     this.fadeRect.rect(0, 0, 4000, 4000).fill(0x14100a);
     this.fadeRect.alpha = 0;
+    this.shadowTexture = canvasTexture(makeSoftCircleTexture(96, 'rgba(16,14,40,0.9)'));
+
+    for (let i = 0; i < 16; i++) {
+      const fly = new Sprite(canvasTexture(makeSoftCircleTexture(14, 'rgba(255,242,180,0.95)')));
+      fly.anchor.set(0.5);
+      fly.alpha = 0;
+      fly.scale.set(0.6 + Math.random() * 0.5);
+      fly.x = Math.random() * window.innerWidth;
+      fly.y = Math.random() * window.innerHeight;
+      this.weatherLayer.addChild(fly);
+      this.fireflies.push(fly);
+    }
 
     for (let i = 0; i < 9; i++) {
       const fog = new Sprite(canvasTexture(makeSoftCircleTexture(256, 'rgba(228,238,234,0.55)')));
@@ -125,7 +141,36 @@ export class WorldView {
       this.treeTextures.push(canvasTexture(makeTreeTexture(mapId, k)));
     }
 
+    for (const treeSprite of this.treeSprites) {
+      treeSprite.destroy();
+    }
+
+    this.treeSprites = [];
+
+    for (const shadowSprite of this.treeShadowSprites) {
+      shadowSprite.destroy();
+    }
+
+    this.treeShadowSprites = [];
     this.trees = this.generateTrees();
+
+    for (const tree of this.trees) {
+      const shadow = new Sprite(this.shadowTexture!);
+      shadow.anchor.set(0.5, 0.5);
+      shadow.scale.set(1.3, 0.55);
+      shadow.alpha = 0.2;
+      shadow.position.set(tree.x * TILE + TILE / 2 - 6, tree.y * TILE + TILE - 4);
+      shadow.zIndex = tree.y * TILE + TILE - 3.5;
+      this.mainLayer.addChild(shadow);
+      this.treeShadowSprites.push(shadow);
+
+      const sprite = new Sprite(this.treeTextures[tree.kind]);
+      sprite.anchor.set(0.5, 1);
+      sprite.position.set(tree.x * TILE + TILE / 2, tree.y * TILE + TILE - 2);
+      sprite.zIndex = tree.y * TILE + TILE - 3;
+      this.mainLayer.addChild(sprite);
+      this.treeSprites.push(sprite);
+    }
 
     for (const glow of this.portalGlows) {
       glow.sprite.destroy();
@@ -363,7 +408,7 @@ export class WorldView {
       glow.sprite.scale.set(0.85 + Math.sin(this.time * 1.7) * 0.08);
     }
 
-    this.updateDayNight(screenW, screenH);
+    this.updateDayNight(dt, screenW, screenH);
     this.updateWeather(dt, screenW, screenH);
 
     if (this.fadeDir !== 0) {
@@ -384,7 +429,7 @@ export class WorldView {
     this.fadeRect.alpha = this.fade;
   }
 
-  private updateDayNight(screenW: number, screenH: number) {
+  private updateDayNight(dt: number, screenW: number, screenH: number) {
     const t = this.dayTime;
     let darkness = 0;
     let warmth = 0;
@@ -415,6 +460,45 @@ export class WorldView {
     this.warmRect.alpha = warmth;
     this.warmRect.width = screenW + 8;
     this.warmRect.height = screenH + 8;
+
+    for (const shadow of this.treeShadowSprites) {
+      shadow.alpha = 0.2 + darkness * 0.42;
+      const nightScale = 1 + darkness * 0.55;
+      shadow.scale.set(1.3 * nightScale, 0.55 * nightScale);
+    }
+
+    const flyTarget = this.map.weather === 'snow' ? 0.18 : 0.85;
+
+    for (let i = 0; i < this.fireflies.length; i++) {
+      const fly = this.fireflies[i];
+      const target = darkness * flyTarget;
+      fly.alpha += (target - fly.alpha) * Math.min(1, dt * 2);
+
+      if (fly.alpha > 0.02) {
+        fly.y += Math.sin(this.time * (0.8 + (i % 5) * 0.13) + i) * dt * 9;
+        fly.x += Math.cos(this.time * (0.6 + (i % 3) * 0.17) + i * 2) * dt * 7;
+        fly.alpha = Math.max(0, fly.alpha * (0.72 + Math.sin(this.time * 2.2 + i * 1.7) * 0.28));
+
+        if (fly.y > screenH + 20) fly.y = -20;
+        if (fly.y < -40) fly.y = screenH + 10;
+        if (fly.x > screenW + 20) fly.x = -20;
+        if (fly.x < -40) fly.x = screenW + 10;
+      }
+    }
+  }
+
+  setPhotoMode(on: boolean) {
+    for (const view of this.entities.values()) {
+      view.label.visible = !on;
+      view.bubbleText?.destroy();
+      view.bubbleText = undefined;
+      view.bubbleBg?.destroy();
+      view.bubbleBg = undefined;
+    }
+
+    for (const glow of this.portalGlows) {
+      glow.label.visible = !on;
+    }
   }
 
   private updateWeather(dt: number, screenW: number, screenH: number) {

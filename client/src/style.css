@@ -462,3 +462,24 @@ button {
   gap: 8px;
   margin-top: 14px;
 }
+
+.photo-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: rgba(40, 32, 22, 0.82);
+  color: #fff6dd;
+  font-family: 'Trebuchet MS', sans-serif;
+  font-size: 13px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 2000;
+  animation: photo-fade 3.5s forwards;
+}
+
+@keyframes photo-fade {
+  0%, 60% { opacity: 1; }
+  100% { opacity: 0; }
+}

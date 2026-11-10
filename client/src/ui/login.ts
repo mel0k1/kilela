@@ -1,5 +1,6 @@
 import { el } from './dom';
 import { randomLook, encodeLook, decodeLook, DEFAULT_LOOK, type Look } from '../pony/look';
+import { sfx } from '../audio/sfx';
 
 export interface LoginResult {
   name: string;
@@ -31,6 +32,7 @@ export function showLogin(onStart: (result: LoginResult) => void): void {
     const name = input.value.trim() || 'Искорка';
     localStorage.setItem('kilela.name', name);
     localStorage.setItem('kilela.look', encodeLook(look));
+    sfx.resume();
     overlay.remove();
     onStart({ name, look });
   };

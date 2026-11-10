@@ -5,6 +5,7 @@ import { getMap, type PortalDef } from '../../../shared/protocol';
 import { PonyActor, type Target } from '../pony/anim';
 import { buildPaletteLook, decodeLook, encodeLook, type Look, type PaletteLook } from '../pony/look';
 import { boop } from '../pony/pt/animations';
+import { sfx } from '../audio/sfx';
 
 const SPEED = 4.2;
 const PORTAL_RADIUS = 1.8;
@@ -62,6 +63,7 @@ export class Game {
     await this.net.connect();
     this.net.send({ t: 'hello', name, look: this.myLookCode });
     this.bindInput(app);
+    this.myActor.onTransitSound = name => sfx.play(name);
   }
 
   setLook(look: Look) {
@@ -84,6 +86,7 @@ export class Game {
         this.enterMap(msg.map);
         this.view.addEntity(this.myId, this.myName, this.myLook, this.myLookCode, this.myActor, this.playerX, this.playerY);
         this.cb.onSys('Добро пожаловать в Килелу!');
+        sfx.play('welcome');
         break;
       }
       case 'join': {
@@ -293,6 +296,7 @@ export class Game {
       this.playerY += dy * SPEED * dt;
       this.playerDir = directionFromVector(dx, dy);
       this.walkTarget = this.keys.size > 0 ? undefined : this.walkTarget;
+      sfx.step();
     }
 
     const map = getMap(this.view.mapId);
@@ -342,6 +346,7 @@ export class Game {
     this.walkTarget = undefined;
     this.net.send({ t: 'loc', to: portal.to });
     this.view.fadeDir = 1;
+    sfx.play('portal');
   }
 
 }

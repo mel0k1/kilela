@@ -8,6 +8,8 @@ import { EXPRESSION_PRESETS } from './look';
 
 export type Target = 'stand' | 'walk' | 'sit' | 'lie' | 'dance';
 
+export type TransitSound = 'sitDown' | 'standUp' | 'lieDown';
+
 const HEAD_ANIMS: Record<string, HeadAnimation | undefined> = {
   laugh, surprise, excite, nom, yawn, tongue: happyTongue,
 };
@@ -40,6 +42,7 @@ export class PonyActor {
   private tempExpressionTimer = 0;
   private blinkTimer = 2 + Math.random() * 4;
   private blinkActive = 0;
+  onTransitSound: ((name: TransitSound) => void) | undefined;
 
   constructor() {
     this.state = {
@@ -62,9 +65,16 @@ export class PonyActor {
   }
 
   private setAnim(anim: BodyAnimation) {
+    const instant = this.chain.length === 0 && this.state.animationFrame === 0;
     this.state.animation = anim;
     this.state.animationFrame = 0;
     this.baseTime = 0;
+
+    if (this.onTransitSound && !instant) {
+      if (anim === sitDown) this.onTransitSound('sitDown');
+      else if (anim === standUp || anim === sitUp) this.onTransitSound('standUp');
+      else if (anim === lieDown) this.onTransitSound('lieDown');
+    }
   }
 
   private baseAnimFor(target: Target): BodyAnimation {
@@ -204,9 +214,7 @@ export class PonyActor {
 
           if (this.chainIndex < this.chain.length) {
             const next = this.chain[this.chainIndex];
-            this.state.animation = next;
-            this.state.animationFrame = 0;
-            this.baseTime = 0;
+            this.setAnim(next);
 
             if (next.loop) {
               this.chain = [];

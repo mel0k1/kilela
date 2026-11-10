@@ -1,10 +1,13 @@
 import { el, clear } from './dom';
+import { sfx } from '../audio/sfx';
 
 export interface HudCallbacks {
   onEmote(action: string): void;
   onChatSend(text: string): void;
   onOpenEditor(): void;
   onLogout(): void;
+  onPhotoToggle(): void;
+  onSoundToggle(): void;
 }
 
 export class Hud {
@@ -16,6 +19,8 @@ export class Hud {
   private chatInput: HTMLInputElement;
   private cb: HudCallbacks;
   private emoteButtons = new Map<string, HTMLButtonElement>();
+  private soundButton: HTMLButtonElement;
+  soundOn = true;
 
   constructor(cb: HudCallbacks) {
     this.cb = cb;
@@ -27,7 +32,21 @@ export class Hud {
     this.clockLabel = el('span', 'topbar-clock', topbar);
     const editButton = el('button', 'btn small topbar-edit', topbar);
     editButton.textContent = 'Внешность';
-    editButton.addEventListener('click', () => this.cb.onOpenEditor());
+    editButton.addEventListener('click', () => {
+      sfx.play('click');
+      this.cb.onOpenEditor();
+    });
+    const photoButton = el('button', 'btn small', topbar);
+    photoButton.textContent = '📷';
+    photoButton.title = 'Фоторежим (P), снимок — C';
+    photoButton.addEventListener('click', () => {
+      sfx.play('click');
+      this.cb.onPhotoToggle();
+    });
+    this.soundButton = el('button', 'btn small', topbar) as HTMLButtonElement;
+    this.soundButton.textContent = '🔊';
+    this.soundButton.title = 'Звуки (M)';
+    this.soundButton.addEventListener('click', () => this.cb.onSoundToggle());
     const exitButton = el('button', 'btn small', topbar);
     exitButton.textContent = 'Выход';
     exitButton.addEventListener('click', () => this.cb.onLogout());
@@ -104,7 +123,10 @@ export class Hud {
     const button = el('button', 'emote-btn', parent) as HTMLButtonElement;
     button.textContent = icon;
     button.title = title;
-    button.addEventListener('click', () => this.cb.onEmote(action));
+    button.addEventListener('click', () => {
+      sfx.play('click');
+      this.cb.onEmote(action);
+    });
     this.emoteButtons.set(action, button);
   }
 
@@ -155,6 +177,11 @@ export class Hud {
     if (action) {
       this.emoteButtons.get(action)?.classList.add('active');
     }
+  }
+
+  setSoundOn(on: boolean) {
+    this.soundOn = on;
+    this.soundButton.textContent = on ? '🔊' : '🔇';
   }
 
   destroy() {

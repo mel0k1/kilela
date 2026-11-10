@@ -5,6 +5,7 @@ import {
   buildPaletteLook, encodeLook, EXPRESSION_PRESETS, CUTIE_MARKS, randomLook,
   maneCount, backManeCount, tailCount, wingsCount, type Look,
 } from '../pony/look';
+import { sfx } from '../audio/sfx';
 
 export interface EditorCallbacks {
   onSave(look: Look): void;
@@ -64,6 +65,7 @@ export class Editor {
     const randomButton = el('button', 'btn small', previewWrap);
     randomButton.textContent = 'Случайная пони';
     randomButton.addEventListener('click', () => {
+      sfx.play('pop');
       this.look = { ...randomLook() };
       this.refreshAll();
     });
@@ -74,10 +76,16 @@ export class Editor {
     const footer = el('div', 'editor-footer', panel);
     const closeButton = el('button', 'btn', footer);
     closeButton.textContent = 'Отмена';
-    closeButton.addEventListener('click', () => this.close(false));
+    closeButton.addEventListener('click', () => {
+      sfx.play('click');
+      this.close(false);
+    });
     const saveButton = el('button', 'btn primary', footer);
     saveButton.textContent = 'Сохранить';
-    saveButton.addEventListener('click', () => this.close(true));
+    saveButton.addEventListener('click', () => {
+      sfx.play('pop');
+      this.close(true);
+    });
 
     const tabs: [string, string][] = [
       ['body', 'Тело'], ['mane', 'Грива'], ['tail', 'Хвост'], ['face', 'Морда'], ['mark', 'Метка'],
@@ -88,6 +96,7 @@ export class Editor {
       tabButton.textContent = label;
       tabButton.dataset.tab = id;
       tabButton.addEventListener('click', () => {
+        sfx.play('click');
         this.tab = id;
         this.tabsRow.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
         tabButton.classList.add('active');
@@ -162,6 +171,7 @@ export class Editor {
       }
 
       button.addEventListener('click', () => {
+        sfx.play('click');
         onPick(i);
         grid.querySelectorAll('.option-btn').forEach(b => b.classList.remove('active'));
         button.classList.add('active');
