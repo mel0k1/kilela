@@ -1,5 +1,5 @@
 export const TICK_HZ = 10;
-export const LOOK_PREFIX = 'KL2.';
+export const LOOK_PREFIX = 'KL';
 export const MAX_NAME = 16;
 export const MAX_CHAT = 200;
 
