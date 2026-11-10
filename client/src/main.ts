@@ -6,6 +6,7 @@ import { showLogin } from './ui/login';
 import { Editor } from './ui/editor';
 import { Hud } from './ui/hud';
 import { sfx } from './audio/sfx';
+import { MusicPlayer } from './audio/music';
 import { drawPonyToCanvas } from './pony/draw';
 import { stand, trot } from './pony/pt/animations';
 
@@ -42,8 +43,7 @@ function startGame(app: Application, name: string, look: Look) {
   let currentLook = look;
   let photoMode = false;
 
-  const music = new Audio();
-  music.volume = 0.45;
+  const music = new MusicPlayer();
 
   const game = new Game(currentLook, {
     onChat(id, who, text) {
@@ -61,10 +61,7 @@ function startGame(app: Application, name: string, look: Look) {
     onMap(id, mapName) {
       hud.setMap(mapName);
       app.renderer.background.color = MAP_SKY[id] ?? MAP_SKY.meadow;
-      const mapMusic = `/music/${getMusicFor(id)}`;
-      music.src = mapMusic;
-      music.loop = true;
-      music.play().catch(() => undefined);
+      music.setPlaylist(id);
     },
   });
 
@@ -99,7 +96,7 @@ function startGame(app: Application, name: string, look: Look) {
       sfx.play('click');
     },
     onLogout() {
-      music.pause();
+      music.stop();
       location.reload();
     },
   });
@@ -163,17 +160,6 @@ function startGame(app: Application, name: string, look: Look) {
     hud.addSystem('Не удалось подключиться к серверу. Обнови страницу.');
     console.error(err);
   });
-}
-
-function getMusicFor(mapId: string): string {
-  switch (mapId) {
-    case 'forest':
-      return 'trees.mp3';
-    case 'peaks':
-      return 'reindeer-winter.mp3';
-    default:
-      return 'bossanova.mp3';
-  }
 }
 
 boot().catch(err => {
