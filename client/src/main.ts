@@ -6,6 +6,8 @@ import { showLogin } from './ui/login';
 import { Editor } from './ui/editor';
 import { Hud } from './ui/hud';
 import { sfx } from './audio/sfx';
+import { drawPonyToCanvas } from './pony/draw';
+import { stand, trot } from './pony/pt/animations';
 
 const MAP_SKY: Record<string, number> = {
   meadow: 0xa5dcf2,

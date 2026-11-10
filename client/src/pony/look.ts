@@ -363,6 +363,10 @@ export function decodeLook(code: string): Look {
       bytes[i] = binary.charCodeAt(i);
     }
 
+    if (bytes.length < 42) {
+      return { ...DEFAULT_LOOK };
+    }
+
     let offset = 0;
     const read = bitReaderCustom(() => (bytes.length <= offset ? 0 : bytes[offset++]));
 

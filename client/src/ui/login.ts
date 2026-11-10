@@ -39,10 +39,7 @@ export function showLogin(onStart: (result: LoginResult) => void): void {
 
   const playButton = el('button', 'btn primary', buttons);
   playButton.textContent = savedLookCode ? 'Играть' : 'Создать пони';
-
-  if (savedLookCode) {
-    playButton.addEventListener('click', () => play(decodeSaved(savedLookCode)));
-  }
+  playButton.addEventListener('click', () => play(savedLookCode ? decodeSaved(savedLookCode) : randomLook()));
 
   const newButton = el('button', 'btn', buttons);
   newButton.textContent = 'Новая пони';
