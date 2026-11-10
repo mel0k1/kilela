@@ -1,0 +1,164 @@
+import { el, clear } from './dom';
+
+export interface HudCallbacks {
+  onEmote(action: string): void;
+  onChatSend(text: string): void;
+  onOpenEditor(): void;
+  onLogout(): void;
+}
+
+export class Hud {
+  root: HTMLElement;
+  private mapLabel: HTMLElement;
+  private onlineLabel: HTMLElement;
+  private clockLabel: HTMLElement;
+  private chatLog: HTMLElement;
+  private chatInput: HTMLInputElement;
+  private cb: HudCallbacks;
+  private emoteButtons = new Map<string, HTMLButtonElement>();
+
+  constructor(cb: HudCallbacks) {
+    this.cb = cb;
+    this.root = el('div', 'hud', document.body);
+
+    const topbar = el('div', 'topbar', this.root);
+    this.mapLabel = el('span', 'topbar-map', topbar);
+    this.onlineLabel = el('span', 'topbar-online', topbar);
+    this.clockLabel = el('span', 'topbar-clock', topbar);
+    const editButton = el('button', 'btn small topbar-edit', topbar);
+    editButton.textContent = 'Внешность';
+    editButton.addEventListener('click', () => this.cb.onOpenEditor());
+    const exitButton = el('button', 'btn small', topbar);
+    exitButton.textContent = 'Выход';
+    exitButton.addEventListener('click', () => this.cb.onLogout());
+
+    this.chatLog = el('div', 'chat-log', this.root);
+    this.chatLog.addEventListener('pointerdown', e => e.stopPropagation());
+
+    const chatBar = el('div', 'chat-bar', this.root);
+    this.chatInput = el('input', 'chat-input', chatBar) as HTMLInputElement;
+    this.chatInput.maxLength = 200;
+    this.chatInput.placeholder = 'Сказать что-нибудь…';
+    this.chatInput.addEventListener('keydown', e => {
+      e.stopPropagation();
+
+      if (e.key === 'Enter') {
+        const text = this.chatInput.value.trim();
+
+        if (text) {
+          this.cb.onChatSend(text);
+        }
+
+        this.chatInput.value = '';
+        this.chatInput.blur();
+      } else if (e.key === 'Escape') {
+        this.chatInput.value = '';
+        this.chatInput.blur();
+      }
+    });
+
+    const sendButton = el('button', 'btn small', chatBar);
+    sendButton.textContent = '➤';
+    sendButton.addEventListener('click', () => {
+      const text = this.chatInput.value.trim();
+
+      if (text) {
+        this.cb.onChatSend(text);
+      }
+
+      this.chatInput.value = '';
+      this.chatInput.blur();
+    });
+
+    const emoteBar = el('div', 'emote-bar', this.root);
+    this.addEmote(emoteBar, 'sit', '🪑', 'Сесть / встать');
+    this.addEmote(emoteBar, 'sleep', '💤', 'Лечь / встать');
+    this.addEmote(emoteBar, 'dance', '💃', 'Танцевать');
+    this.addEmote(emoteBar, 'wave', '👋', 'Помахать копытом');
+    this.addEmote(emoteBar, 'hug', '🤗', 'Обняться');
+
+    const faceBar = el('div', 'face-bar', this.root);
+    this.addEmote(faceBar, 'surprise', '😮', 'Удивиться');
+    this.addEmote(faceBar, 'excite', '🤩', 'Восторг');
+    this.addEmote(faceBar, 'laugh', '😆', 'Смеяться');
+    this.addEmote(faceBar, 'nom', '😋', 'Ням-ням');
+    this.addEmote(faceBar, 'tongue', '🤪', 'Показать язык');
+    this.addEmote(faceBar, 'yawn', '🥱', 'Зевнуть');
+    this.addEmote(faceBar, 'happy', '😊', 'Радость');
+    this.addEmote(faceBar, 'wink', '😉', 'Подмигнуть');
+    this.addEmote(faceBar, 'sad', '😢', 'Грусть');
+    this.addEmote(faceBar, 'angry', '😠', 'Обидеться');
+    this.addEmote(faceBar, 'hearts', '💗', 'Умиление');
+
+    window.addEventListener('keydown', e => {
+      if (document.activeElement === this.chatInput) return;
+
+      if (e.key === 'Enter' || e.key === 'т') {
+        e.preventDefault();
+        this.chatInput.focus();
+      }
+    });
+  }
+
+  private addEmote(parent: HTMLElement, action: string, icon: string, title: string) {
+    const button = el('button', 'emote-btn', parent) as HTMLButtonElement;
+    button.textContent = icon;
+    button.title = title;
+    button.addEventListener('click', () => this.cb.onEmote(action));
+    this.emoteButtons.set(action, button);
+  }
+
+  setMap(name: string) {
+    this.mapLabel.textContent = name;
+  }
+
+  setOnline(n: number) {
+    this.onlineLabel.textContent = `🧣 ${n} на лугу`;
+  }
+
+  setDayTime(k: number) {
+    const hour = Math.floor(k * 24);
+    const minute = Math.floor((k * 24 - hour) * 60);
+    this.clockLabel.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  }
+
+  addChat(name: string, text: string, own: boolean) {
+    const line = el('div', 'chat-line' + (own ? ' own' : ''), this.chatLog);
+    const nameSpan = el('span', 'chat-name', line);
+    nameSpan.textContent = name;
+    const textSpan = el('span', 'chat-text', line);
+    textSpan.textContent = `: ${text}`;
+
+    while (this.chatLog.children.length > 60) {
+      this.chatLog.removeChild(this.chatLog.firstChild!);
+    }
+
+    this.chatLog.scrollTop = this.chatLog.scrollHeight;
+  }
+
+  addSystem(text: string) {
+    const line = el('div', 'chat-line system', this.chatLog);
+    line.textContent = text;
+
+    while (this.chatLog.children.length > 60) {
+      this.chatLog.removeChild(this.chatLog.firstChild!);
+    }
+
+    this.chatLog.scrollTop = this.chatLog.scrollHeight;
+  }
+
+  markEmoteActive(action: string) {
+    for (const key of ['sit', 'sleep', 'dance']) {
+      this.emoteButtons.get(key)?.classList.remove('active');
+    }
+
+    if (action) {
+      this.emoteButtons.get(action)?.classList.add('active');
+    }
+  }
+
+  destroy() {
+    clear(this.root);
+    this.root.remove();
+  }
+}
