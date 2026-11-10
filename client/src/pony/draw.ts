@@ -55,6 +55,10 @@ function createCompleteSets(sets: Sets, frameCount: number): Sets {
 
 const wingSets: Sets = createCompleteSets(sprites.wings as Sets, 13);
 const tailSets: Sets = createCompleteSets(sprites.tails as Sets, 3);
+const sleeveFrontSets: Sets = createCompleteSets(sprites.frontLegSleeves as Sets, 40);
+const sleeveBackSets: Sets = createCompleteSets(sprites.backLegSleeves as Sets, 40);
+const waistSets: Sets = createCompleteSets(sprites.waistAccessories as Sets, 17);
+const neckSets: Sets = createCompleteSets(sprites.neckAccessories as Sets, 17);
 
 const blinkFrames: Eye[][] = [];
 
@@ -149,6 +153,7 @@ interface LegDefs {
   legs: Sets;
   hooves: Sets;
   accessories: Sets;
+  sleeves: Sets;
   hoovesInFront: boolean[];
 }
 
@@ -156,6 +161,7 @@ const frontLegDefs: LegDefs = {
   legs: sprites.frontLegs as Sets,
   hooves: sprites.frontLegHooves as Sets,
   accessories: sprites.frontLegAccessories as Sets,
+  sleeves: sleeveFrontSets,
   hoovesInFront: frontHoovesInFront,
 };
 
@@ -163,6 +169,7 @@ const backLegDefs: LegDefs = {
   legs: sprites.backLegs as Sets,
   hooves: sprites.backLegHooves as Sets,
   accessories: sprites.backLegAccessories as Sets,
+  sleeves: sleeveBackSets,
   hoovesInFront: backHoovesInFront,
 };
 
@@ -170,12 +177,14 @@ const backLegDefs2: LegDefs = {
   legs: sprites.backLegs2 as Sets,
   hooves: sprites.backLegHooves2 as Sets,
   accessories: sprites.backLegAccessories2 as Sets,
+  sleeves: sleeveBackSets,
   hoovesInFront: backHoovesInFront,
 };
 
 function drawLegPattern(
   batch: PonyBatch, x: number, y: number, frame: number, defs: LegDefs,
-  legSet: PartSet | undefined, hoofSet: PartSet | undefined, sockSet: PartSet | undefined, tint: number,
+  legSet: PartSet | undefined, hoofSet: PartSet | undefined, sockSet: PartSet | undefined,
+  sleeveSet: PartSet | undefined, tint: number,
 ) {
   const hoofInFront = hoofSet !== undefined && !!defs.hoovesInFront[hoofSet.type];
   const legPatterns = at(defs.legs, frame);
@@ -191,6 +200,10 @@ function drawLegPattern(
 
   if (sockSet) {
     drawSet(batch, at(defs.accessories, frame) as Sets, sockSet, x, y, tint);
+  }
+
+  if (sleeveSet) {
+    drawSet(batch, at(defs.sleeves, frame) as Sets, sleeveSet, x, y, tint);
   }
 
   return hoofInFront;
@@ -354,12 +367,12 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   drawLegPattern(
     batch, behindX + backLegOffset.x + frame.backFarLegX, behindY + backLegOffset.y + frame.backFarLegY,
-    frame.backFarLeg, backLegDefs, look.backLegs, look.backHooves, sock, FAR_COLOR,
+    frame.backFarLeg, backLegDefs, look.backLegs, look.backHooves, sock, look.sleeves, FAR_COLOR,
   );
 
   drawLegPattern(
     batch, behindX + frontLegOffset.x + frame.frontFarLegX, behindY + frontLegOffset.y + frame.frontFarLegY,
-    frame.frontFarLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, FAR_COLOR,
+    frame.frontFarLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, look.sleeves, FAR_COLOR,
   );
 
   const tailPattern = look.tail && att(at(tailSets, frame.tail), look.tail.type);
@@ -375,12 +388,16 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   drawSet(batch, at(sprites.body as Sets, body), look.body, x, y, WHITE);
 
+  if (look.waist) {
+    drawSet(batch, at(waistSets, body) as Sets, look.waist, x, y, WHITE);
+  }
+
   const cmOffset = at(cmOffsets, body);
   const cmFlip = flipped && look.cmFlip;
 
   const backHoofInFront = drawLegPattern(
     batch, x + backLegOffset.x + frame.backLegX, y + backLegOffset.y + frame.backLegY,
-    frame.backLeg, backLegDefs, look.backLegs, look.backHooves, sock, WHITE,
+    frame.backLeg, backLegDefs, look.backLegs, look.backHooves, sock, look.sleeves, WHITE,
   );
 
   if (look.cmPalette) {
@@ -402,7 +419,7 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   const frontHoofInFront = drawLegPattern(
     batch, x + frontLegOffset.x + frame.frontLegX, y + frontLegOffset.y + frame.frontLegY,
-    frame.frontLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, WHITE,
+    frame.frontLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, look.sleeves, WHITE,
   );
 
   if (frontHoofInFront && look.frontHooves) {
@@ -415,8 +432,12 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   drawLegPattern(
     batch, x + backLegOffset.x + frame.backLegX, y + backLegOffset.y + frame.backLegY,
-    frame.backLeg, backLegDefs2, look.backLegs, look.backHooves, sock, WHITE,
+    frame.backLeg, backLegDefs2, look.backLegs, look.backHooves, sock, look.sleeves, WHITE,
   );
+
+  if (look.neck) {
+    drawSet(batch, at(neckSets, body) as Sets, look.neck, x + chestOffset.x, y + chestOffset.y, WHITE);
+  }
 
   if (look.wings) {
     const closeWingPattern = att(at(wingSets, frame.wing), look.wings.type);

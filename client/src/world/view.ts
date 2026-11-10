@@ -11,6 +11,7 @@ import {
 } from '../../../shared/world';
 import { getMap, type MapDef } from '../../../shared/protocol';
 import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
+import { emoteAnim, type EmoteAnim } from '../pony/emotes';
 import type { PonyActor } from '../pony/anim';
 import type { PaletteLook } from '../pony/look';
 
@@ -42,6 +43,11 @@ interface EntityView {
   bubbleText: Text | undefined;
   bubbleBg: Graphics | undefined;
   bubbleTimer: number;
+  emoteSprite: Sprite | undefined;
+  emoteAnim: EmoteAnim | undefined;
+  emoteFrame: number;
+  emoteFrameTime: number;
+  emoteTimer: number;
   x: number;
   y: number;
   dir: number;
@@ -327,6 +333,7 @@ export class WorldView {
     const view: EntityView = {
       id, name, actor, look, lookCode, sprite, canvas, label,
       bubbleText: undefined, bubbleBg: undefined, bubbleTimer: 0,
+      emoteSprite: undefined, emoteAnim: undefined, emoteFrame: 0, emoteFrameTime: 0, emoteTimer: 0,
       x, y, dir: 0,
     };
 
@@ -344,7 +351,42 @@ export class WorldView {
     view.label.destroy();
     view.bubbleText?.destroy();
     view.bubbleBg?.destroy();
+    this.destroyEmote(view);
     this.entities.delete(id);
+  }
+
+  private destroyEmote(view: EntityView) {
+    view.emoteSprite?.destroy();
+    view.emoteSprite = undefined;
+    view.emoteAnim = undefined;
+    view.emoteTimer = 0;
+    view.emoteFrame = 0;
+    view.emoteFrameTime = 0;
+  }
+
+  showEmote(id: number, name: string, seconds: number) {
+    const view = this.entities.get(id);
+
+    if (!view) return;
+
+    const anim = emoteAnim(name);
+
+    if (!anim) return;
+
+    if (view.emoteSprite) {
+      this.destroyEmote(view);
+    }
+
+    const sprite = new Sprite(canvasTexture(anim.canvases[0]));
+    sprite.anchor.set(0.5, 1);
+    sprite.zIndex = 100003;
+    this.mainLayer.addChild(sprite);
+    view.emoteSprite = sprite;
+    view.emoteAnim = anim;
+    view.emoteFrame = 0;
+    view.emoteFrameTime = 0;
+    view.emoteTimer = seconds;
+    this.placeEntityAtTile(view);
   }
 
   placeEntityAtTile(view: EntityView) {
@@ -356,6 +398,10 @@ export class WorldView {
     view.label.zIndex = py + 0.5;
     view.bubbleBg?.position.set(px, py - 96);
     view.bubbleText?.position.set(px, py - 90);
+
+    if (view.emoteSprite) {
+      view.emoteSprite.position.set(px, py);
+    }
   }
 
   setEntityPos(id: number, x: number, y: number, dir: number) {
@@ -434,6 +480,23 @@ export class WorldView {
           view.bubbleBg?.destroy();
           view.bubbleText = undefined;
           view.bubbleBg = undefined;
+        }
+      }
+
+      if (view.emoteSprite && view.emoteAnim) {
+        view.emoteFrameTime += dt;
+        const frameDur = 1 / view.emoteAnim.fps;
+
+        while (view.emoteFrameTime >= frameDur) {
+          view.emoteFrameTime -= frameDur;
+          view.emoteFrame = (view.emoteFrame + 1) % view.emoteAnim.canvases.length;
+        }
+
+        view.emoteSprite.texture = canvasTexture(view.emoteAnim.canvases[view.emoteFrame]);
+        view.emoteTimer -= dt;
+
+        if (view.emoteTimer <= 0) {
+          this.destroyEmote(view);
         }
       }
     }
@@ -585,6 +648,10 @@ export class WorldView {
       view.bubbleText = undefined;
       view.bubbleBg?.destroy();
       view.bubbleBg = undefined;
+
+      if (view.emoteSprite) {
+        view.emoteSprite.visible = !on;
+      }
     }
 
     for (const glow of this.portalGlows) {

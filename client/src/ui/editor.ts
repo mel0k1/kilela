@@ -5,6 +5,7 @@ import {
   buildPaletteLook, encodeLook, EXPRESSION_PRESETS, CUTIE_MARKS, randomLook,
   maneCount, backManeCount, tailCount, wingsCount, hornCount, earsCount, facialHairCount,
   headAccessoryCount, chestAccessoryCount, backAccessoryCount, legAccessoryCount,
+  sleevesCount, waistCount, neckCount, muzzleCount,
   type Look,
 } from '../pony/look';
 import { sfx } from '../audio/sfx';
@@ -404,6 +405,15 @@ export class Editor {
           this.scheduleRefresh();
         });
       }
+
+      const muzzleLabel = el('div', 'editor-row-label', this.body);
+      muzzleLabel.textContent = 'Морда и рот';
+      this.optionGrid(this.body, muzzleCount(), look.muzzle, '',
+        i => ({ ...look, muzzle: i }),
+        i => {
+          look.muzzle = i;
+          this.scheduleRefresh();
+        });
     } else if (this.tab === 'acc') {
       const hatLabel = el('div', 'editor-row-label', this.body);
       hatLabel.textContent = 'Головной убор';
@@ -468,6 +478,54 @@ export class Editor {
           this.scheduleRefresh();
         });
       }
+
+      const sleeveLabel = el('div', 'editor-row-label', this.body);
+      sleeveLabel.textContent = 'Рукава';
+      this.optionGrid(this.body, sleevesCount() + 1, look.sleeves, 'Нет',
+        i => ({ ...look, sleeves: i }),
+        i => {
+          look.sleeves = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.sleeves > 0) {
+        this.colorRow(this.body, 'Цвет рукавов', WARM_SWATCHES, look.sleevesColor, c => {
+          look.sleevesColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const waistLabel = el('div', 'editor-row-label', this.body);
+      waistLabel.textContent = 'Пояс и юбка';
+      this.optionGrid(this.body, waistCount(), look.waist, 'Нет',
+        i => ({ ...look, waist: i }),
+        i => {
+          look.waist = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.waist > 0) {
+        this.colorRow(this.body, 'Цвет пояса', WARM_SWATCHES, look.waistColor, c => {
+          look.waistColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const neckLabel = el('div', 'editor-row-label', this.body);
+      neckLabel.textContent = 'Шейный платок';
+      this.optionGrid(this.body, neckCount(), look.neck, 'Нет',
+        i => ({ ...look, neck: i }),
+        i => {
+          look.neck = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.neck > 0) {
+        this.colorRow(this.body, 'Цвет платка', WARM_SWATCHES, look.neckColor, c => {
+          look.neckColor = c;
+          this.scheduleRefresh();
+        });
+      }
     } else if (this.tab === 'mark') {
       const markLabel = el('div', 'editor-row-label', this.body);
       markLabel.textContent = 'Кьютимарка';
@@ -511,5 +569,8 @@ function DEFAULT_LOOK_PROXY(): Look {
     chestAccessory: 0, chestAccessoryColor: 0xd9534fff,
     backAccessory: 0, backAccessoryColor: 0xd9534fff,
     legAccessory: 0, legAccessoryColor: 0xd9534fff,
+    sleeves: 0, sleevesColor: 0xd9534fff,
+    waist: 0, waistColor: 0xd9534fff,
+    neck: 0, neckColor: 0xd9534fff,
   };
 }

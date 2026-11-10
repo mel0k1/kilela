@@ -8,6 +8,7 @@ import { Hud } from './ui/hud';
 import { sfx } from './audio/sfx';
 import { MusicPlayer } from './audio/music';
 import { drawPonyToCanvas } from './pony/draw';
+import { preloadEmotes } from './pony/emotes';
 import { stand, trot } from './pony/pt/animations';
 
 const MAP_SKY: Record<string, number> = {
@@ -33,6 +34,7 @@ async function boot() {
   });
 
   await loadPonySheets();
+  await preloadEmotes();
 
   showLogin(({ name, look }) => {
     startGame(app, name, look);

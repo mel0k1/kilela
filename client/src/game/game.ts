@@ -38,6 +38,7 @@ export class Game {
   private keys = new Set<string>();
   private posTimer = 0;
   private lastSent = { x: 0, y: 0, dir: 0 };
+  private zzzTimer = 0;
   private cb: GameCallbacks;
   private started = false;
   private pendingPortal: { to: string; x: number; y: number } | undefined;
@@ -132,7 +133,7 @@ export class Game {
       }
       case 'emote': {
         if (msg.id !== this.myId) {
-          this.applyEmote(this.view.entities.get(msg.id)?.actor, msg.action);
+          this.applyEmote(msg.id, this.view.entities.get(msg.id)?.actor, msg.action);
         }
 
         break;
@@ -193,10 +194,10 @@ export class Game {
     }
 
     this.net.send({ t: 'emote', action });
-    this.applyEmote(this.myActor, action);
+    this.applyEmote(this.myId, this.myActor, action);
   }
 
-  applyEmote(actor: PonyActor | undefined, action: string) {
+  applyEmote(id: number, actor: PonyActor | undefined, action: string) {
     if (!actor) return;
 
     switch (action) {
@@ -209,6 +210,7 @@ export class Game {
         break;
       case 'sleep':
         actor.setTarget('lie');
+        this.view.showEmote(id, 'emote_sleep', 10);
         break;
       case 'dance':
         actor.setTarget('dance');
@@ -219,6 +221,7 @@ export class Game {
         break;
       case 'hug':
         actor.playExpression('hearts');
+        this.view.showEmote(id, 'emote_hearts', 4);
         break;
       case 'laugh':
       case 'surprise':
@@ -229,11 +232,24 @@ export class Game {
         actor.playHead(action);
         break;
       case 'sad':
+        actor.playExpression('sad');
+        this.view.showEmote(id, 'emote_tears', 4);
+        break;
+      case 'cry':
+        actor.playExpression('sad');
+        this.view.showEmote(id, 'emote_cry', 5);
+        break;
+      case 'sneeze':
+        this.view.showEmote(id, 'emote_sneeze', 2.2);
+        break;
       case 'angry':
       case 'happy':
       case 'wink':
-      case 'hearts':
         actor.playExpression(action);
+        break;
+      case 'hearts':
+        actor.playExpression('hearts');
+        this.view.showEmote(id, 'emote_hearts', 4);
         break;
     }
   }
@@ -343,6 +359,17 @@ export class Game {
     const map = getMap(this.view.mapId);
     this.playerX = Math.max(1, Math.min(map.w - 2, this.playerX));
     this.playerY = Math.max(1, Math.min(map.h - 2, this.playerY));
+
+    if (this.myActor.target === 'lie') {
+      this.zzzTimer -= dt;
+
+      if (this.zzzTimer <= 0) {
+        this.zzzTimer = 6;
+        this.view.showEmote(this.myId, 'emote_sleep', 6);
+      }
+    } else if (this.zzzTimer > 0) {
+      this.zzzTimer = 0;
+    }
 
     if (this.moving) {
       this.myActor.setTarget('walk');

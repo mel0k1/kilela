@@ -36,6 +36,12 @@ export interface Look {
   backAccessoryColor: number;
   legAccessory: number;
   legAccessoryColor: number;
+  sleeves: number;
+  sleevesColor: number;
+  waist: number;
+  waistColor: number;
+  neck: number;
+  neckColor: number;
 }
 
 export interface ExpressionPreset {
@@ -106,6 +112,70 @@ export const CUTIE_MARKS: CutieMark[] = [
     name: 'diamond', label: 'Кристалл',
     colors: mark(['..#..', '.###.', '.###.', '.###.', '..#..'], 0x56c7ffff),
   },
+  {
+    name: 'moon', label: 'Луна',
+    colors: mark(['.###.', '####.', '###..', '###..', '####.'], 0xf5e6a8ff),
+  },
+  {
+    name: 'cloud', label: 'Облачко',
+    colors: mark(['.....', '.###.', '#####', '#####', '.....'], 0xdfeefaff),
+  },
+  {
+    name: 'balloon', label: 'Шарик',
+    colors: mark(['.###.', '#####', '#####', '.###.', '..#..'], 0xff6b8aff),
+  },
+  {
+    name: 'book', label: 'Книжка',
+    colors: mark(['##.##', '#####', '##.##', '#####', '##.##'], 0xb5714bff),
+  },
+  {
+    name: 'cupcake', label: 'Кексик',
+    colors: mark(['.###.', '#####', '#####', '.###.', '.###.'], 0xffa0b4ff),
+  },
+  {
+    name: 'leaf', label: 'Листик',
+    colors: mark(['..#..', '.###.', '#####', '.###.', '..#..'], 0x50c878ff),
+  },
+  {
+    name: 'paw', label: 'Лапка',
+    colors: mark(['.#.#.', '#####', '#####', '.###.', '..#..'], 0xa07850ff),
+  },
+  {
+    name: 'guitar', label: 'Гитара',
+    colors: mark(['..#..', '.###.', '.###.', '.###.', '..#..'], 0xc98a4bff),
+  },
+  {
+    name: 'crown', label: 'Корона',
+    colors: mark(['#.#.#', '#####', '#####', '#####', '.....'], 0xf1d224ff),
+  },
+  {
+    name: 'key', label: 'Ключик',
+    colors: mark(['.##..', '#.#..', '.##..', '..#..', '..##.'], 0xf1d224ff),
+  },
+  {
+    name: 'bell', label: 'Колокольчик',
+    colors: mark(['..#..', '.###.', '.###.', '#####', '.....'], 0xf1d224ff),
+  },
+  {
+    name: 'fish', label: 'Рыбка',
+    colors: mark(['..#.#', '.####', '#####', '.####', '..#.#'], 0x56c7ffff),
+  },
+  {
+    name: 'snowflake', label: 'Снежинка',
+    colors: mark(['#.#.#', '.###.', '#####', '.###.', '#.#.#'], 0xa8e0faff),
+  },
+  {
+    name: 'fire', label: 'Огонёк',
+    colors: mark(['..#..', '.##..', '#####', '#####', '.###.'], 0xff8c42ff),
+  },
+  {
+    name: 'butterfly', label: 'Бабочка',
+    colors: mark(['##.##', '#####', '.###.', '#####', '##.##'], 0xc77fdfff),
+  },
+  {
+    name: 'rainbow', label: 'Радуга',
+    colors: mark(['#####', '#####', '#####', '.....', '.....'], 0xff8ac2ff),
+  },
 ];
 
 export const DEFAULT_LOOK: Look = {
@@ -139,6 +209,12 @@ export const DEFAULT_LOOK: Look = {
   backAccessoryColor: 0xd9534fff,
   legAccessory: 0,
   legAccessoryColor: 0xd9534fff,
+  sleeves: 0,
+  sleevesColor: 0xd9534fff,
+  waist: 0,
+  waistColor: 0xd9534fff,
+  neck: 0,
+  neckColor: 0xd9534fff,
 };
 
 const anySets = sprites as unknown as Record<string, ColorExtraSets>;
@@ -212,6 +288,14 @@ function animatedSet(sets: ColorExtraSets[], type: number, fills: number[], coat
   return { type, pattern: 0, palette: paletteFor(best, fills, coat) };
 }
 
+function deepSet(sets: unknown, type: number, fills: number[], coat: number): PaletteSpriteSet | undefined {
+  if (type <= 0) return undefined;
+
+  const frames = sets as ColorExtraSets[];
+  const best = maxColorsOf(frames.filter(Boolean) as ColorExtraSets[], type);
+  return { type, pattern: 0, palette: paletteFor(best, fills, coat) };
+}
+
 export interface PaletteLook {
   body: PaletteSpriteSet;
   head: PaletteSpriteSet;
@@ -231,6 +315,9 @@ export interface PaletteLook {
   chestAccessory: PaletteSpriteSet | undefined;
   backAccessory: PaletteSpriteSet | undefined;
   legAccessory: PaletteSpriteSet | undefined;
+  sleeves: PaletteSpriteSet | undefined;
+  waist: PaletteSpriteSet | undefined;
+  neck: PaletteSpriteSet | undefined;
   eyePalette: Uint32Array;
   eyeColor: Uint32Array;
   eyelashes: number;
@@ -278,6 +365,15 @@ export function buildPaletteLook(look: Look): PaletteLook {
       [anySets.frontLegAccessories, anySets.backLegAccessories] as unknown as ColorExtraSets[],
       look.legAccessory, [look.legAccessoryColor || 0xd9534fff], look.coat,
     ),
+    sleeves: look.sleeves > 0
+      ? deepSet(anySets.frontLegSleeves, look.sleeves - 1, [look.sleevesColor || 0xd9534fff], look.coat)
+      : undefined,
+    waist: look.waist > 0
+      ? animatedSet(anySets.waistAccessories as unknown as ColorExtraSets[], look.waist, [look.waistColor || 0xd9534fff], look.coat)
+      : undefined,
+    neck: look.neck > 0
+      ? animatedSet(anySets.neckAccessories as unknown as ColorExtraSets[], look.neck, [look.neckColor || 0xd9534fff], look.coat)
+      : undefined,
     eyePalette: new Uint32Array([0, look.eyeWhite || WHITE, BLACK]),
     eyeColor: new Uint32Array([0, look.eyeColor]),
     eyelashes: clamp(look.eyelashes, 0, 2),
@@ -336,6 +432,27 @@ export function legAccessoryCount(): number {
   return Math.min(typeCount(anySets.frontLegAccessories), typeCount(anySets.backLegAccessories));
 }
 
+function animatedTypeCount(sets: unknown): number {
+  const frames = sets as ColorExtraSets[];
+  return frames ? frames.reduce((max, frame) => Math.max(max, frame ? frame.length : 0), 0) : 0;
+}
+
+export function sleevesCount(): number {
+  return animatedTypeCount(anySets.frontLegSleeves);
+}
+
+export function waistCount(): number {
+  return animatedTypeCount(anySets.waistAccessories);
+}
+
+export function neckCount(): number {
+  return animatedTypeCount(anySets.neckAccessories);
+}
+
+export function muzzleCount(): number {
+  return (sprites.noses as unknown as unknown[][]).length;
+}
+
 export function eyelashCount(): number {
   return 3;
 }
@@ -387,6 +504,12 @@ export function randomLook(): Look {
     backAccessoryColor: pick(maneColors),
     legAccessory: Math.random() < 0.12 ? 1 : 0,
     legAccessoryColor: pick(maneColors),
+    sleeves: Math.random() < 0.15 ? 1 + Math.floor(Math.random() * sleevesCount()) : 0,
+    sleevesColor: pick(maneColors),
+    waist: Math.random() < 0.1 ? 1 + Math.floor(Math.random() * waistCount()) : 0,
+    waistColor: pick(maneColors),
+    neck: Math.random() < 0.12 ? 1 + Math.floor(Math.random() * neckCount()) : 0,
+    neckColor: pick(maneColors),
   };
 
   look.wingsColor = look.coat;
@@ -432,6 +555,12 @@ export function encodeLook(look: Look): string {
     w(look.backAccessoryColor || 0, 32);
     w(look.legAccessory || 0, 1);
     w(look.legAccessoryColor || 0, 32);
+    w(look.sleeves || 0, 3);
+    w(((look.sleevesColor || 0) >>> 8) & 0xffffff, 24);
+    w(look.waist || 0, 2);
+    w(((look.waistColor || 0) >>> 8) & 0xffffff, 24);
+    w(look.neck || 0, 4);
+    w(((look.neckColor || 0) >>> 8) & 0xffffff, 24);
   });
 
   let binary = '';
@@ -440,15 +569,15 @@ export function encodeLook(look: Look): string {
     binary += String.fromCharCode(b);
   }
 
-  return 'KL3.' + btoa(binary);
+  return 'KL4.' + btoa(binary);
 }
 
 export function decodeLook(code: string): Look {
-  if (!code.startsWith('KL2.') && !code.startsWith('KL3.')) {
+  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.')) {
     return { ...DEFAULT_LOOK };
   }
 
-  const version = code.startsWith('KL3.') ? 3 : 2;
+  const version = code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
 
   try {
     const binary = atob(code.slice(4));
@@ -496,6 +625,12 @@ export function decodeLook(code: string): Look {
       backAccessoryColor: 0xd9534fff,
       legAccessory: 0,
       legAccessoryColor: 0xd9534fff,
+      sleeves: 0,
+      sleevesColor: 0xd9534fff,
+      waist: 0,
+      waistColor: 0xd9534fff,
+      neck: 0,
+      neckColor: 0xd9534fff,
     };
 
     if (read(1)) look.maneColors.push(read(32));
@@ -533,6 +668,15 @@ export function decodeLook(code: string): Look {
       look.backAccessoryColor = read(32);
       look.legAccessory = read(1);
       look.legAccessoryColor = read(32);
+    }
+
+    if (version >= 4) {
+      look.sleeves = read(3);
+      look.sleevesColor = ((read(24) << 8) | 0xff) >>> 0;
+      look.waist = read(2);
+      look.waistColor = ((read(24) << 8) | 0xff) >>> 0;
+      look.neck = read(4);
+      look.neckColor = ((read(24) << 8) | 0xff) >>> 0;
     }
 
     return look;

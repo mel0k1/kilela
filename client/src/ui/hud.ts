@@ -124,6 +124,8 @@ export class Hud {
     this.addEmote(faceBar, 'happy', '😊', 'Радость');
     this.addEmote(faceBar, 'wink', '😉', 'Подмигнуть');
     this.addEmote(faceBar, 'sad', '😢', 'Грусть');
+    this.addEmote(faceBar, 'cry', '😭', 'Поплакать');
+    this.addEmote(faceBar, 'sneeze', '🤧', 'Чихнуть');
     this.addEmote(faceBar, 'angry', '😠', 'Обидеться');
     this.addEmote(faceBar, 'hearts', '💗', 'Умиление');
 

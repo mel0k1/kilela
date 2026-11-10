@@ -8,7 +8,7 @@ import { randomName } from './names';
 import { getRoom, type Player } from './rooms';
 
 const PORT = Number(process.env.PORT || 8080);
-const LOOK_MAX = 160;
+const LOOK_MAX = 220;
 const PORTAL_RADIUS = 2.5;
 const MAX_POS_STEP = 3;
 const POS_SAMPLE = 0.25;

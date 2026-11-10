@@ -226,6 +226,8 @@ export function validEmote(action: string): boolean {
     case 'happy':
     case 'wink':
     case 'hearts':
+    case 'cry':
+    case 'sneeze':
       return true;
     default:
       return false;
