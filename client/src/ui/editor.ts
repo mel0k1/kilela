@@ -3,7 +3,9 @@ import { PonyActor } from '../pony/anim';
 import { drawPonyToCanvas } from '../pony/draw';
 import {
   buildPaletteLook, encodeLook, EXPRESSION_PRESETS, CUTIE_MARKS, randomLook,
-  maneCount, backManeCount, tailCount, wingsCount, type Look,
+  maneCount, backManeCount, tailCount, wingsCount, earsCount, facialHairCount,
+  headAccessoryCount, chestAccessoryCount, backAccessoryCount, legAccessoryCount,
+  type Look,
 } from '../pony/look';
 import { sfx } from '../audio/sfx';
 
@@ -88,7 +90,7 @@ export class Editor {
     });
 
     const tabs: [string, string][] = [
-      ['body', 'Тело'], ['mane', 'Грива'], ['tail', 'Хвост'], ['face', 'Морда'], ['mark', 'Метка'],
+      ['body', 'Тело'], ['mane', 'Грива'], ['tail', 'Хвост'], ['face', 'Морда'], ['acc', 'Одежда'], ['mark', 'Метка'],
     ];
 
     for (const [id, label] of tabs) {
@@ -253,6 +255,15 @@ export class Editor {
         hornToggle.classList.toggle('active', !!look.horn);
         this.scheduleRefresh();
       });
+
+      const earsLabel = el('div', 'editor-row-label', this.body);
+      earsLabel.textContent = 'Ушки';
+      this.optionGrid(this.body, earsCount(), look.ears, '',
+        i => ({ ...look, ears: i }),
+        i => {
+          look.ears = i;
+          this.scheduleRefresh();
+        });
     } else if (this.tab === 'mane') {
       this.optionGrid(this.body, maneCount(), look.mane, 'Лысая',
         i => ({ ...look, mane: i }),
@@ -378,6 +389,86 @@ export class Editor {
           this.scheduleRefresh();
         });
       });
+
+      const hairLabel = el('div', 'editor-row-label', this.body);
+      hairLabel.textContent = 'Бородка';
+      this.optionGrid(this.body, facialHairCount(), look.facialHair, 'Нет',
+        i => ({ ...look, facialHair: i }),
+        i => {
+          look.facialHair = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.facialHair > 0) {
+        this.colorRow(this.body, 'Цвет бородки', MANE_SWATCHES, look.facialHairColors[0], c => {
+          look.facialHairColors[0] = c;
+          this.scheduleRefresh();
+        });
+      }
+    } else if (this.tab === 'acc') {
+      const hatLabel = el('div', 'editor-row-label', this.body);
+      hatLabel.textContent = 'Головной убор';
+      this.optionGrid(this.body, headAccessoryCount(), look.headAccessory, 'Нет',
+        i => ({ ...look, headAccessory: i }),
+        i => {
+          look.headAccessory = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.headAccessory > 0) {
+        this.colorRow(this.body, 'Цвет убора', WARM_SWATCHES, look.headAccessoryColor, c => {
+          look.headAccessoryColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const chestLabel = el('div', 'editor-row-label', this.body);
+      chestLabel.textContent = 'Шарф и жилет';
+      this.optionGrid(this.body, chestAccessoryCount(), look.chestAccessory, 'Нет',
+        i => ({ ...look, chestAccessory: i }),
+        i => {
+          look.chestAccessory = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.chestAccessory > 0) {
+        this.colorRow(this.body, 'Цвет', WARM_SWATCHES, look.chestAccessoryColor, c => {
+          look.chestAccessoryColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const backLabel = el('div', 'editor-row-label', this.body);
+      backLabel.textContent = 'Сумка и седельная сумка';
+      this.optionGrid(this.body, backAccessoryCount(), look.backAccessory, 'Нет',
+        i => ({ ...look, backAccessory: i }),
+        i => {
+          look.backAccessory = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.backAccessory > 0) {
+        this.colorRow(this.body, 'Цвет', WARM_SWATCHES, look.backAccessoryColor, c => {
+          look.backAccessoryColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const sockLabel = el('div', 'editor-row-label', this.body);
+      sockLabel.textContent = 'Носочки';
+      this.optionGrid(this.body, legAccessoryCount(), look.legAccessory, 'Нет',
+        i => ({ ...look, legAccessory: i }),
+        i => {
+          look.legAccessory = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.legAccessory > 0) {
+        this.colorRow(this.body, 'Цвет носочков', WARM_SWATCHES, look.legAccessoryColor, c => {
+          look.legAccessoryColor = c;
+          this.scheduleRefresh();
+        });
+      }
     } else if (this.tab === 'mark') {
       const markLabel = el('div', 'editor-row-label', this.body);
       markLabel.textContent = 'Кьютимарка';
@@ -416,5 +507,10 @@ function DEFAULT_LOOK_PROXY(): Look {
     mane: 2, maneColors: [0x8a5a3bff], backMane: 1, backManeColors: [0x8a5a3bff],
     tail: 1, tailColors: [0x8a5a3bff], muzzle: 0, wings: 0, wingsColor: 0xffe0b8ff,
     horn: 0, hooves: 0, cm: 1, cmColor: 0xf15f9dff, cmFlip: false,
+    ears: 0, facialHair: 0, facialHairColors: [0x8a5a3bff, 0x8a5a3bff],
+    headAccessory: 0, headAccessoryColor: 0xd9534fff,
+    chestAccessory: 0, chestAccessoryColor: 0xd9534fff,
+    backAccessory: 0, backAccessoryColor: 0xd9534fff,
+    legAccessory: 0, legAccessoryColor: 0xd9534fff,
   };
 }

@@ -25,6 +25,17 @@ export interface Look {
   cm: number;
   cmColor: number;
   cmFlip: boolean;
+  ears: number;
+  facialHair: number;
+  facialHairColors: number[];
+  headAccessory: number;
+  headAccessoryColor: number;
+  chestAccessory: number;
+  chestAccessoryColor: number;
+  backAccessory: number;
+  backAccessoryColor: number;
+  legAccessory: number;
+  legAccessoryColor: number;
 }
 
 export interface ExpressionPreset {
@@ -117,6 +128,17 @@ export const DEFAULT_LOOK: Look = {
   cm: 1,
   cmColor: 0xf15f9dff,
   cmFlip: false,
+  ears: 0,
+  facialHair: 0,
+  facialHairColors: [0x8a5a3bff, 0x8a5a3bff],
+  headAccessory: 0,
+  headAccessoryColor: 0xd9534fff,
+  chestAccessory: 0,
+  chestAccessoryColor: 0xd9534fff,
+  backAccessory: 0,
+  backAccessoryColor: 0xd9534fff,
+  legAccessory: 0,
+  legAccessoryColor: 0xd9534fff,
 };
 
 const anySets = sprites as unknown as Record<string, ColorExtraSets>;
@@ -183,6 +205,13 @@ function manedSet(sets: ColorExtraSets[], type: number, fills: number[], coat: n
   return { type, pattern: 0, palette: paletteFor(best, fills, coat) };
 }
 
+function animatedSet(sets: ColorExtraSets[], type: number, fills: number[], coat: number): PaletteSpriteSet | undefined {
+  if (type <= 0) return undefined;
+
+  const best = maxColorsOf([sets[0], sets[1], sets[2], sets[3]].filter(Boolean) as ColorExtraSets[], type);
+  return { type, pattern: 0, palette: paletteFor(best, fills, coat) };
+}
+
 export interface PaletteLook {
   body: PaletteSpriteSet;
   head: PaletteSpriteSet;
@@ -197,6 +226,11 @@ export interface PaletteLook {
   wings: PaletteSpriteSet | undefined;
   horn: PaletteSpriteSet | undefined;
   nose: PaletteSpriteSet;
+  facialHair: PaletteSpriteSet | undefined;
+  headAccessory: PaletteSpriteSet | undefined;
+  chestAccessory: PaletteSpriteSet | undefined;
+  backAccessory: PaletteSpriteSet | undefined;
+  legAccessory: PaletteSpriteSet | undefined;
   eyePalette: Uint32Array;
   eyeColor: Uint32Array;
   eyelashes: number;
@@ -212,11 +246,12 @@ export function buildPaletteLook(look: Look): PaletteLook {
   const maneSets = [anySets.behindManes, anySets.topManes, anySets.frontManes];
   const backManeSets = [anySets.backBehindManes, anySets.backFrontManes];
   const cmPalette = look.cm > 0 && look.cm < CUTIE_MARKS.length ? CUTIE_MARKS[look.cm].colors : undefined;
+  const accColor = [look.headAccessoryColor || 0xd9534fff];
 
   return {
     body: framedSet([anySets.body as ColorExtraSets], 1, 0, coat, look.coat),
     head: framedSet([anySets.head0 as ColorExtraSets], 1, 0, coat, look.coat),
-    ears: typedSet(anySets.ears, 0, coat, look.coat),
+    ears: typedSet(anySets.ears, look.ears, coat, look.coat),
     frontLegs: framedSet([anySets.frontLegs as ColorExtraSets], 1, 0, coat, look.coat),
     backLegs: framedSet([anySets.backLegs as ColorExtraSets], 1, 0, coat, look.coat),
     frontHooves: look.hooves
@@ -233,6 +268,16 @@ export function buildPaletteLook(look: Look): PaletteLook {
       : undefined,
     horn: look.horn > 0 ? typedSet(anySets.horns, look.horn, coat, look.coat) : undefined,
     nose: typedSet((anySets.noses as unknown as ColorExtraSets[])[0], 0, coat, look.coat),
+    facialHair: manedSet([anySets.facialHairBehind, anySets.facialHair], look.facialHair, look.facialHairColors, look.coat),
+    headAccessory: look.headAccessory > 0
+      ? typedSet(anySets.headAccessoriesBehind, look.headAccessory, accColor, look.coat)
+      : undefined,
+    chestAccessory: animatedSet(anySets.chestAccessories as unknown as ColorExtraSets[], look.chestAccessory, [look.chestAccessoryColor || 0xd9534fff], look.coat),
+    backAccessory: animatedSet(anySets.backAccessories as unknown as ColorExtraSets[], look.backAccessory, [look.backAccessoryColor || 0xd9534fff], look.coat),
+    legAccessory: animatedSet(
+      [anySets.frontLegAccessories, anySets.backLegAccessories] as unknown as ColorExtraSets[],
+      look.legAccessory, [look.legAccessoryColor || 0xd9534fff], look.coat,
+    ),
     eyePalette: new Uint32Array([0, look.eyeWhite || WHITE, BLACK]),
     eyeColor: new Uint32Array([0, look.eyeColor]),
     eyelashes: clamp(look.eyelashes, 0, 2),
@@ -265,6 +310,30 @@ export function wingsCount(): number {
 
 export function hornCount(): number {
   return typeCount(anySets.horns);
+}
+
+export function earsCount(): number {
+  return typeCount(anySets.ears);
+}
+
+export function facialHairCount(): number {
+  return Math.max(typeCount(anySets.facialHairBehind), typeCount(anySets.facialHair));
+}
+
+export function headAccessoryCount(): number {
+  return typeCount(anySets.headAccessoriesBehind);
+}
+
+export function chestAccessoryCount(): number {
+  return typeCount(anySets.chestAccessories);
+}
+
+export function backAccessoryCount(): number {
+  return typeCount(anySets.backAccessories);
+}
+
+export function legAccessoryCount(): number {
+  return Math.min(typeCount(anySets.frontLegAccessories), typeCount(anySets.backLegAccessories));
 }
 
 export function eyelashCount(): number {
@@ -307,6 +376,17 @@ export function randomLook(): Look {
     cm: Math.random() < 0.8 ? Math.floor(Math.random() * CUTIE_MARKS.length) : 0,
     cmColor: pick(maneColors),
     cmFlip: Math.random() < 0.5,
+    ears: Math.random() < 0.3 ? Math.floor(Math.random() * earsCount()) : 0,
+    facialHair: Math.random() < 0.12 ? Math.floor(Math.random() * facialHairCount()) : 0,
+    facialHairColors: pick2(maneColors),
+    headAccessory: Math.random() < 0.2 ? 1 + Math.floor(Math.random() * (headAccessoryCount() - 1)) : 0,
+    headAccessoryColor: pick(maneColors),
+    chestAccessory: Math.random() < 0.18 ? 1 + Math.floor(Math.random() * Math.max(1, chestAccessoryCount() - 1)) : 0,
+    chestAccessoryColor: pick(maneColors),
+    backAccessory: Math.random() < 0.1 ? 1 + Math.floor(Math.random() * Math.max(1, backAccessoryCount() - 1)) : 0,
+    backAccessoryColor: pick(maneColors),
+    legAccessory: Math.random() < 0.12 ? 1 : 0,
+    legAccessoryColor: pick(maneColors),
   };
 
   look.wingsColor = look.coat;
@@ -339,6 +419,19 @@ export function encodeLook(look: Look): string {
     w(look.cm, 5);
     w(look.cmColor, 32);
     w(look.cmFlip ? 1 : 0, 1);
+    w(look.ears || 0, 3);
+    w(look.facialHair || 0, 5);
+    w(look.facialHairColors[0] || 0, 32);
+    w(look.facialHairColors[1] ? 1 : 0, 1);
+    if (look.facialHairColors[1]) w(look.facialHairColors[1], 32);
+    w(look.headAccessory || 0, 5);
+    w(look.headAccessoryColor || 0, 32);
+    w(look.chestAccessory || 0, 3);
+    w(look.chestAccessoryColor || 0, 32);
+    w(look.backAccessory || 0, 3);
+    w(look.backAccessoryColor || 0, 32);
+    w(look.legAccessory || 0, 1);
+    w(look.legAccessoryColor || 0, 32);
   });
 
   let binary = '';
@@ -347,13 +440,15 @@ export function encodeLook(look: Look): string {
     binary += String.fromCharCode(b);
   }
 
-  return 'KL2.' + btoa(binary);
+  return 'KL3.' + btoa(binary);
 }
 
 export function decodeLook(code: string): Look {
-  if (!code.startsWith('KL2.')) {
+  if (!code.startsWith('KL2.') && !code.startsWith('KL3.')) {
     return { ...DEFAULT_LOOK };
   }
+
+  const version = code.startsWith('KL3.') ? 3 : 2;
 
   try {
     const binary = atob(code.slice(4));
@@ -390,6 +485,17 @@ export function decodeLook(code: string): Look {
       cm: 0,
       cmColor: 0,
       cmFlip: false,
+      ears: 0,
+      facialHair: 0,
+      facialHairColors: [0x8a5a3bff, 0x8a5a3bff],
+      headAccessory: 0,
+      headAccessoryColor: 0xd9534fff,
+      chestAccessory: 0,
+      chestAccessoryColor: 0xd9534fff,
+      backAccessory: 0,
+      backAccessoryColor: 0xd9534fff,
+      legAccessory: 0,
+      legAccessoryColor: 0xd9534fff,
     };
 
     if (read(1)) look.maneColors.push(read(32));
@@ -411,6 +517,23 @@ export function decodeLook(code: string): Look {
     look.cm = read(5);
     look.cmColor = read(32);
     look.cmFlip = read(1) === 1;
+
+    if (version >= 3) {
+      look.ears = read(3);
+      look.facialHair = read(5);
+      look.facialHairColors = [read(32), 0];
+
+      if (read(1)) look.facialHairColors[1] = read(32);
+
+      look.headAccessory = read(5);
+      look.headAccessoryColor = read(32);
+      look.chestAccessory = read(3);
+      look.chestAccessoryColor = read(32);
+      look.backAccessory = read(3);
+      look.backAccessoryColor = read(32);
+      look.legAccessory = read(1);
+      look.legAccessoryColor = read(32);
+    }
 
     return look;
   } catch {
