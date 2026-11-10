@@ -7,6 +7,7 @@ import type { PathPoint } from '../../../shared/world';
 import { PonyActor, type Target } from '../pony/anim';
 import { buildPaletteLook, decodeLook, encodeLook, type Look, type PaletteLook } from '../pony/look';
 import { boop } from '../pony/pt/animations';
+import { parseChatExpression } from '../pony/expressions';
 import { sfx } from '../audio/sfx';
 
 const SPEED = 4.2;
@@ -39,6 +40,7 @@ export class Game {
   private posTimer = 0;
   private lastSent = { x: 0, y: 0, dir: 0 };
   private zzzTimer = 0;
+  private wasInWater = false;
   private cb: GameCallbacks;
   private started = false;
   private pendingPortal: { to: string; x: number; y: number } | undefined;
@@ -87,6 +89,7 @@ export class Game {
         this.playerY = msg.y;
         this.cb.onOnline(msg.online);
         this.enterMap(msg.map);
+        this.view.myEntityId = this.myId;
         this.view.addEntity(this.myId, this.myName, this.myLook, this.myLookCode, this.myActor, this.playerX, this.playerY);
         this.cb.onSys('Добро пожаловать в Килелу!');
         sfx.play('welcome');
@@ -129,6 +132,12 @@ export class Game {
         const name = msg.id === this.myId ? this.myName : this.view.entities.get(msg.id)?.name || '?';
         this.view.showBubble(msg.id, msg.text);
         this.cb.onChat(msg.id, name, msg.text);
+        const view = this.view.entities.get(msg.id);
+
+        if (view && view.actor.target !== 'fly') {
+          view.actor.applyExpression(parseChatExpression(msg.text));
+        }
+
         break;
       }
       case 'emote': {
@@ -168,6 +177,7 @@ export class Game {
       }
     }
 
+    this.wasInWater = false;
     this.view.buildMap(mapId);
     const map = getMap(mapId);
     this.cb.onMap(map.id, map.name);
@@ -183,6 +193,10 @@ export class Game {
   sendEmote(action: string) {
     if (action === 'sit' || action === 'sleep' || action === 'dance') {
       this.walkTarget = undefined;
+    }
+
+    if (this.myActor.target === 'swim' && (action === 'sit' || action === 'sleep' || action === 'dance' || action === 'wave' || action === 'boop')) {
+      return;
     }
 
     if (action === 'sit' && this.myActor.target === 'sit') {
@@ -262,6 +276,11 @@ export class Game {
       case 'hearts':
         actor.playExpression('hearts');
         this.view.showEmote(id, 'emote_hearts', 4);
+        break;
+      case 'kiss':
+        actor.playHead('kiss');
+        actor.playExpression('kiss');
+        this.view.showEmote(id, 'emote_hearts', 3);
         break;
     }
   }
@@ -347,15 +366,15 @@ export class Game {
     if (this.moving) {
       dx /= len;
       dy /= len;
-      const nx = this.playerX + dx * SPEED * (flying ? 1.35 : 1) * dt;
-      const ny = this.playerY + dy * SPEED * (flying ? 1.35 : 1) * dt;
-      const inWater = !flying && this.view.isBlockedAt(Math.round(this.playerX), Math.round(this.playerY));
+      const speed = flying ? SPEED * 1.35 : this.myActor.target === 'swim' ? SPEED * 0.8 : SPEED;
+      const nx = this.playerX + dx * speed * dt;
+      const ny = this.playerY + dy * speed * dt;
       const blockX = flying
         ? this.view.isFlyBlockedAt(Math.round(nx), Math.round(this.playerY))
-        : !inWater && this.view.isBlockedAt(Math.round(nx), Math.round(this.playerY));
+        : this.view.isBlockedAt(Math.round(nx), Math.round(this.playerY));
       const blockY = flying
         ? this.view.isFlyBlockedAt(Math.round(this.playerX), Math.round(ny))
-        : !inWater && this.view.isBlockedAt(Math.round(this.playerX), Math.round(ny));
+        : this.view.isBlockedAt(Math.round(this.playerX), Math.round(ny));
 
       if (!blockX) {
         this.playerX = nx;
@@ -369,10 +388,20 @@ export class Game {
         this.moving = false;
         this.walkTarget = undefined;
       }
+    }
 
+    if (this.moving) {
       this.playerDir = directionFromVector(dx, dy);
       this.walkTarget = this.keys.size > 0 ? undefined : this.walkTarget;
       sfx.step();
+    }
+
+    const waterHere = !flying && this.view.isWaterAt(Math.round(this.playerX), Math.round(this.playerY));
+
+    if (waterHere !== this.wasInWater) {
+      this.wasInWater = waterHere;
+      sfx.play('splash');
+      this.view.showSplash(this.myId);
     }
 
     const map = getMap(this.view.mapId);
@@ -390,9 +419,13 @@ export class Game {
       this.zzzTimer = 0;
     }
 
-    if (this.moving) {
+    if (waterHere && this.myActor.target !== 'swim' && this.myActor.target !== 'fly') {
+      this.myActor.setTarget('swim');
+    } else if (this.moving && !waterHere) {
       this.myActor.setTarget(flying ? 'fly' : 'walk');
     } else if (this.myActor.target === 'walk') {
+      this.myActor.setTarget('stand');
+    } else if (!waterHere && this.myActor.target === 'swim') {
       this.myActor.setTarget('stand');
     }
 

@@ -2,6 +2,7 @@ const PLAYLISTS: Record<string, string[]> = {
   meadow: [
     'bossanova.mp3', 'clop.mp3', 'fivefour.mp3', 'hypnosis.mp3', 'scherzo.mp3',
     'trills.mp3', 'waltzalt.mp3', 'orchid.mp3', 'season.mp3', 'ambient.mp3', 'building.mp3',
+    'trees.mp3', 'reindeer.mp3', 'school.mp3', 'falling.mp3', 'tio.mp3',
   ],
   forest: ['trees.mp3', 'trills.mp3', 'scherzo.mp3', 'orchid.mp3'],
   peaks: ['reindeer-winter.mp3', 'trees-winter.mp3'],

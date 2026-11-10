@@ -203,6 +203,52 @@ export const fly = createBodyAnimation('fly', 12, true, [
   flyLegs(3, 0, 0),
 ], [[0, 0], [0, 0], [0, -1], [0, -1], [0, 0], [0, 0], [0, 1], [0, 0]]);
 
+export const swim = createBodyAnimation('swim', 4, true, [
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 14],
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 13],
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 12],
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 13],
+]);
+
+export const trotToSwim = createBodyAnimation('trot-to-swim', 24, false, [
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 2],
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 8],
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 10],
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 16],
+]);
+
+export const swimToTrot = createBodyAnimation('swim-to-trot', 24, false, [
+  [1, 1, 0, 0, 8, 10, 6, 5, 0, 12],
+  [1, 1, 0, 0, 12, 3, 4, 23, 0, 8],
+  [1, 1, 0, 0, 14, 26, 3, 24, 0, 4],
+  [1, 1, 0, 0, 18, 27, 2, 5],
+]);
+
+export const flyToSwim = createBodyAnimation('fly-to-swim', 16, false, [
+  [1, 1, 3, 0, 8, 10, 6, 5, 0, -14],
+  [1, 1, 4, 0, 8, 10, 6, 5, 0, -12],
+  [1, 1, 5, 0, 8, 10, 6, 5, 0, -8],
+  [1, 1, 6, 0, 8, 10, 6, 5, 0, -2],
+  [1, 1, 7, 0, 8, 10, 6, 5, 0, 4],
+  [1, 1, 11, 0, 8, 10, 6, 5, 0, 10],
+  [1, 1, 1, 0, 8, 10, 6, 5, 0, 14],
+]);
+
+export const swimToFly = createBodyAnimation('swim-to-fly', 16, false, [
+  [1, 1, 11, 0, 8, 10, 6, 5, 0, 13],
+  [1, 1, 12, 0, 8, 10, 6, 5, 0, 14, 0, 0, 0, -1, 0, -1, 0, -1, 0, -1],
+  [2, 1, 3, 0, 8, 10, 6, 5, 0, 15, 0, 2, 0, -2, 0, -2, 2, -2, 2, -2],
+  [2, 1, 4, 0, 8, 10, 6, 5, 0, 15, 0, 2, 0, -2, 0, -2, 2, -2, 2, -2],
+  [2, 1, 5, 0, 8, 10, 6, 5, 0, 15, 0, 2, 0, -2, 0, -2, 2, -2, 2, -2],
+  [1, 1, 6, 0, 8, 10, 6, 1, 0, 13],
+  [1, 1, 7, 0, 6, 7, 5, 5, 0, -7, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1],
+  [1, 1, 8, 0, 8, 10, 6, 5, 0, -15],
+  [1, 1, 9, 0, 8, 10, 6, 5, 0, -17],
+  [1, 1, 10, 0, 8, 10, 6, 5, 0, -18],
+  [1, 1, 11, 0, 8, 10, 6, 5, 0, -18],
+  [1, 1, 12, 0, 8, 10, 6, 5, 0, -17],
+]);
+
 export function createHeadFrame([headX = 0, headY = 0, left = 0, right = 0, mouth = 0]: number[]): HeadAnimationFrame {
   return { headX, headY, left, right, mouth };
 }
@@ -249,6 +295,14 @@ export const happyTongue = createHeadAnimation('happy-tongue', 12, false, [
   [0, 1, 6, 6, 0],
   ...repeat(8, [0, 0, 14, 14, 4]),
 ]);
+
+export const kissHead = createHeadAnimation('kiss', 24, false, [
+  ...repeat(2, [0, 0, 1, 1, 0]),
+  ...repeat(2, [0, 0, 3, 3, 0]),
+  ...repeat(63, [0, 0, 6, 6, 13]),
+  [0, 0, 3, 3, 17],
+  [0, 0, 1, 1, 0],
+], HAP.DontIncreaseEyeOpenness);
 
 export const defaultBodyAnimation = createBodyAnimation('default', 24, true, [[1, 1, 0, 0, 1, 1, 1, 1]]);
 export const defaultHeadAnimation = createHeadAnimation('default', 24, true, [[0, 0, -1, -1, -1]]);

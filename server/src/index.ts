@@ -228,6 +228,14 @@ function handleChat(p: Player, text: string) {
 
   if (!clean) return;
 
+  if (clean === '/roll' || clean.startsWith('/roll ')) {
+    const arg = clean.slice(5).trim();
+    const sides = Math.min(100, Math.max(2, Number(arg) || 6));
+    const value = 1 + Math.floor(Math.random() * sides);
+    broadcast(p.map, { t: 'chat', id: p.id, text: `🎲 ${value}` });
+    return;
+  }
+
   broadcast(p.map, { t: 'chat', id: p.id, text: clean });
 
   const room = getRoom(p.map);

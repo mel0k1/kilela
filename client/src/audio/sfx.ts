@@ -6,7 +6,8 @@ export type SfxName =
   | 'lieDown'
   | 'portal'
   | 'welcome'
-  | 'pop';
+  | 'pop'
+  | 'splash';
 
 export class Sfx {
   private ctx: AudioContext | undefined;
@@ -77,6 +78,11 @@ export class Sfx {
       case 'pop':
         this.tone(420, 0.07, 0.14, 'triangle', 0.18);
         this.tone(840, 0.05, 0.1, 'sine', 0.12);
+        break;
+      case 'splash':
+        this.noise(0.28, 0.24, 900);
+        this.tone(180, 0.22, 0.16, 'sine', 0.02);
+        window.setTimeout(() => this.noise(0.12, 0.1, 500), 90);
         break;
     }
   }

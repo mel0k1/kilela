@@ -411,7 +411,7 @@ export function buildWorld(map: MapDef): WorldData {
   const blocked = new Uint8Array(w * h);
 
   for (let i = 0; i < blocked.length; i++) {
-    blocked[i] = grid[i] === T_WATER || walls[i] === 1 ? 1 : 0;
+    blocked[i] = walls[i] === 1 ? 1 : 0;
   }
 
   const decor = decorPlacements(map, grid, walls);

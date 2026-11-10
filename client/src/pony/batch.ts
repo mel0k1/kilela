@@ -72,6 +72,7 @@ export class PonyBatch {
   private data: ImageData;
   private context: CanvasRenderingContext2D;
   private transformStack: Mat2D[] = [];
+  private cropRect: [number, number, number, number] | undefined;
   transform: Mat2D = identityMat2D();
   paletteSheetData: ImageData | undefined;
   palette = true;
@@ -80,6 +81,14 @@ export class PonyBatch {
     this.canvas = canvas;
     this.context = canvas.getContext('2d', { willReadFrequently: true })!;
     this.data = this.context.createImageData(canvas.width, canvas.height);
+  }
+
+  crop(x: number, y: number, w: number, h: number) {
+    this.cropRect = [x, y, w, h];
+  }
+
+  clearCrop() {
+    this.cropRect = undefined;
   }
 
   clear() {
@@ -136,12 +145,42 @@ export class PonyBatch {
     const offset = typeOffsets[s.type] || 0;
 
     if (isTranslation(transform)) {
-      const dx = Math.round(x + s.ox + transform[4]);
-      const dy = Math.round(y + s.oy + transform[5]);
+      const dx0 = Math.round(x + s.ox + transform[4]);
+      const dy0 = Math.round(y + s.oy + transform[5]);
       let sx = s.x;
       let sy = s.y;
       let w = s.w;
       let h = s.h;
+      let dx = dx0;
+      let dy = dy0;
+
+      if (this.cropRect) {
+        const [cx, cy, cw, ch] = this.cropRect;
+
+        if (dx < cx) {
+          const shift = cx - dx;
+          sx += shift;
+          dx += shift;
+          w -= shift;
+        }
+
+        if (dy < cy) {
+          const shift = cy - dy;
+          sy += shift;
+          dy += shift;
+          h -= shift;
+        }
+
+        if (dx + w > cx + cw) {
+          w = cx + cw - dx;
+        }
+
+        if (dy + h > cy + ch) {
+          h = cy + ch - dy;
+        }
+
+        if (w <= 0 || h <= 0) return;
+      }
 
       if (dx < 0) {
         w += dx;
@@ -215,6 +254,12 @@ export class PonyBatch {
         const py = y + s.oy + iy;
         const tx = Math.round(px * transform[0] + py * transform[2] + transform[4]);
         const ty = Math.round(px * transform[1] + py * transform[3] + transform[5]);
+
+        if (this.cropRect) {
+          const [cx, cy, cw, ch] = this.cropRect;
+
+          if (tx < cx || ty < cy || tx >= cx + cw || ty >= cy + ch) continue;
+        }
 
         if (tx >= 0 && ty >= 0 && tx < dstWidth && ty < this.data.height) {
           const dst0 = (tx + ty * dstWidth) << 2;

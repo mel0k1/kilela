@@ -14,6 +14,11 @@ import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
 import { emoteAnim, type EmoteAnim } from '../pony/emotes';
 import type { PonyActor } from '../pony/anim';
 import type { PaletteLook } from '../pony/look';
+import type { Sprite as PtSprite } from '../pony/pt/interfaces';
+import { WHITE } from '../pony/pt/compat';
+import { PonyBatch } from '../pony/batch';
+import { paletteSheet } from '../pony/atlas';
+import * as ptSprites from '../pony/pt/sprites';
 
 const canvasTextures = new WeakMap<HTMLCanvasElement, Texture>();
 
@@ -28,8 +33,34 @@ export function canvasTexture(canvas: HTMLCanvasElement): Texture {
   return texture;
 }
 
+const effectTextures = new Map<string, Texture>();
+
+function effectTexture(key: string, s: PtSprite, palette: Uint32Array): Texture {
+  const cached = effectTextures.get(key);
+
+  if (cached) return cached;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = s.w;
+  canvas.height = s.h;
+  const batch = new PonyBatch(canvas);
+  batch.drawSprite(s, WHITE, palette, -s.ox, -s.oy);
+  batch.flush();
+  const texture = Texture.from(canvas);
+  effectTextures.set(key, texture);
+  return texture;
+}
+
+function wakeSet(index: number) {
+  const sets = [ptSprites.pony_wake_1, ptSprites.pony_wake_2, ptSprites.pony_wake_3,
+    ptSprites.pony_wake_4, ptSprites.pony_wake_5, ptSprites.pony_wake_6];
+  const set = sets[index % sets.length];
+  return { frames: set.frames, palette: set.palette };
+}
+
 const DAY_LENGTH = 360;
 const WATER_FPS = 6;
+const REMOTE_SPEED = 4.2;
 
 interface EntityView {
   id: number;
@@ -50,7 +81,16 @@ interface EntityView {
   emoteTimer: number;
   x: number;
   y: number;
+  sx: number;
+  sy: number;
   dir: number;
+  swimming: boolean;
+  wakeBehind: Sprite | undefined;
+  wakeFront: Sprite | undefined;
+  wakeTime: number;
+  splashSprite: Sprite | undefined;
+  splashFrame: number;
+  splashTime: number;
 }
 
 interface DecorView {
@@ -91,6 +131,7 @@ export class WorldView {
   private shadowTexture: Texture | undefined;
   private fireflies: Sprite[] = [];
   private map: MapDef = getMap('meadow');
+  myEntityId = -1;
   readonly entities = new Map<number, EntityView>();
   private fogSprites: Sprite[] = [];
   private snowSprites: Sprite[] = [];
@@ -347,7 +388,10 @@ export class WorldView {
       id, name, actor, look, lookCode, sprite, canvas, label,
       bubbleText: undefined, bubbleBg: undefined, bubbleTimer: 0,
       emoteSprite: undefined, emoteAnim: undefined, emoteFrame: 0, emoteFrameTime: 0, emoteTimer: 0,
-      x, y, dir: 0,
+      x, y, sx: x, sy: y, dir: 0,
+      swimming: false,
+      wakeBehind: undefined, wakeFront: undefined, wakeTime: 0,
+      splashSprite: undefined, splashFrame: 0, splashTime: 0,
     };
 
     this.entities.set(id, view);
@@ -365,7 +409,17 @@ export class WorldView {
     view.bubbleText?.destroy();
     view.bubbleBg?.destroy();
     this.destroyEmote(view);
+    this.destroyWake(view);
+    view.splashSprite?.destroy();
+    view.splashSprite = undefined;
     this.entities.delete(id);
+  }
+
+  private destroyWake(view: EntityView) {
+    view.wakeBehind?.destroy();
+    view.wakeFront?.destroy();
+    view.wakeBehind = undefined;
+    view.wakeFront = undefined;
   }
 
   private destroyEmote(view: EntityView) {
@@ -403,8 +457,8 @@ export class WorldView {
   }
 
   placeEntityAtTile(view: EntityView) {
-    const px = view.x * TILE_W + TILE_W / 2;
-    const py = view.y * TILE_H + TILE_H;
+    const px = view.sx * TILE_W + TILE_W / 2;
+    const py = view.sy * TILE_H + TILE_H;
     view.sprite.position.set(px, py);
     view.sprite.zIndex = py;
     view.label.position.set(px, py - 72);
@@ -471,6 +525,22 @@ export class WorldView {
     this.placeEntityAtTile(view);
   }
 
+  showSplash(id: number) {
+    const view = this.entities.get(id);
+
+    if (!view || view.splashSprite) return;
+
+    const splash = ptSprites.splash;
+    const sprite = new Sprite(effectTexture('splash0', splash.frames[0], splash.palette));
+    sprite.anchor.set(0.5, 1);
+    sprite.zIndex = 100004;
+    this.mainLayer.addChild(sprite);
+    view.splashSprite = sprite;
+    view.splashFrame = 0;
+    view.splashTime = 0;
+    this.placeEntityAtTile(view);
+  }
+
   update(dt: number, playerX: number, playerY: number, playerDir: number) {
     this.time += dt;
     this.waterFrame = Math.floor(this.time * WATER_FPS) % 4;
@@ -479,11 +549,97 @@ export class WorldView {
     const screenH = this.app.renderer.height / this.app.renderer.resolution;
 
     for (const view of this.entities.values()) {
+      const isMy = view.id === this.myEntityId;
+      const dx = view.x - view.sx;
+      const dy = view.y - view.sy;
+      const dist = Math.hypot(dx, dy);
+
+      if (isMy) {
+        view.sx = view.x;
+        view.sy = view.y;
+      } else if (dist > 0.01) {
+        const step = Math.min(dist, REMOTE_SPEED * dt);
+        view.sx += (dx / dist) * step;
+        view.sy += (dy / dist) * step;
+
+        if (view.actor.target !== 'fly' && view.actor.target !== 'sit' && view.actor.target !== 'lie'
+          && view.actor.target !== 'dance' && view.actor.target !== 'swim') {
+          view.actor.setTarget('walk');
+        }
+      } else if (view.actor.target === 'walk') {
+        view.actor.setTarget('stand');
+      }
+
+      const flying = view.actor.target === 'fly';
+      const swimming = !flying && this.isWaterAt(Math.round(view.sx), Math.round(view.sy));
+
+      if (swimming && !view.swimming) {
+        view.swimming = true;
+
+        if (view.actor.target !== 'swim') {
+          view.actor.setTarget('swim');
+        }
+      } else if (!swimming && view.swimming) {
+        view.swimming = false;
+        this.destroyWake(view);
+
+        if (view.actor.target === 'swim') {
+          view.actor.setTarget('stand');
+        }
+      }
+
+      if (view.swimming) {
+        view.wakeTime += dt;
+        const setIndex = view.id % 6;
+        const wake = wakeSet(setIndex);
+        const frame = Math.floor(view.wakeTime * 7) % wake.frames.length;
+
+        if (!view.wakeBehind) {
+          const behind = new Sprite(effectTexture(`wake_${setIndex}_0`, wake.frames[0], wake.palette));
+          behind.anchor.set(0.5, 1);
+          this.mainLayer.addChild(behind);
+          view.wakeBehind = behind;
+
+          const front = new Sprite(behind.texture);
+          front.anchor.set(0.5, 1);
+          this.mainLayer.addChild(front);
+          view.wakeFront = front;
+        }
+
+        const base = view.sy * TILE_H + TILE_H;
+        const texture = effectTexture(`wake_${setIndex}_${frame}`, wake.frames[frame], wake.palette);
+        const behind = view.wakeBehind;
+        const front = view.wakeFront;
+
+        if (behind && front) {
+          behind.texture = texture;
+          front.texture = texture;
+          behind.position.set(view.sx * TILE_W + TILE_W / 2, base - 4);
+          behind.zIndex = base - 0.4;
+          front.position.set(view.sx * TILE_W + TILE_W / 2, base - 2);
+          front.zIndex = base + 0.4;
+        }
+      }
+
       view.actor.update(dt);
       this.placeEntityAtTile(view);
       const flipped = view.dir === 2;
-      drawPonyToCanvas(view.canvas, view.look, view.actor.state, flipped);
+      drawPonyToCanvas(view.canvas, view.look, view.actor.state, flipped, view.swimming);
       (view.sprite.texture as Texture).source.update();
+
+      if (view.splashSprite) {
+        const splash = ptSprites.splash;
+        view.splashTime += dt;
+        const frame = Math.floor(view.splashTime * 18);
+
+        if (frame >= splash.frames.length) {
+          view.splashSprite.destroy();
+          view.splashSprite = undefined;
+        } else {
+          view.splashFrame = frame;
+          view.splashSprite.texture = effectTexture(`splash${frame}`, splash.frames[frame], splash.palette);
+        }
+      }
 
       if (view.bubbleTimer > 0) {
         view.bubbleTimer -= dt;

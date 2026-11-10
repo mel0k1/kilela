@@ -114,6 +114,7 @@ export class Hud {
     this.addEmote(emoteBar, 'dance', '💃', 'Танцевать');
     this.addEmote(emoteBar, 'wave', '👋', 'Помахать копытом');
     this.addEmote(emoteBar, 'hug', '🤗', 'Обняться');
+    this.addEmote(emoteBar, 'kiss', '💋', 'Поцеловать');
 
     const faceBar = el('div', 'face-bar', this.root);
     this.addEmote(faceBar, 'surprise', '😮', 'Удивиться');

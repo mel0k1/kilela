@@ -2,16 +2,17 @@ import type { BodyAnimation, HeadAnimation, PonyState, Expression } from './pt/i
 import { ExpressionExtra, Eye, Iris, Muzzle } from './pt/interfaces';
 import {
   stand, trot, sit, sitDown, standUp, lie, lieDown, sitUp, sitToTrot, lieToTrot, dance, boop, fly,
-  smileHead, nom, laugh, yawn, surprise, excite, happyTongue,
+  swim, trotToSwim, swimToTrot, flyToSwim, swimToFly,
+  smileHead, nom, laugh, yawn, surprise, excite, happyTongue, kissHead,
 } from './pt/animations';
 import { EXPRESSION_PRESETS } from './look';
 
-export type Target = 'stand' | 'walk' | 'sit' | 'lie' | 'dance' | 'fly';
+export type Target = 'stand' | 'walk' | 'sit' | 'lie' | 'dance' | 'fly' | 'swim';
 
 export type TransitSound = 'sitDown' | 'standUp' | 'lieDown';
 
 const HEAD_ANIMS: Record<string, HeadAnimation | undefined> = {
-  laugh, surprise, excite, nom, yawn, tongue: happyTongue,
+  laugh, surprise, excite, nom, yawn, tongue: happyTongue, kiss: kissHead,
 };
 
 const TEMP_EXPRESSIONS: Record<string, () => Expression | undefined> = {
@@ -21,6 +22,7 @@ const TEMP_EXPRESSIONS: Record<string, () => Expression | undefined> = {
   angry: () => ({ left: Eye.Angry, leftIris: Iris.Forward, right: Eye.Angry, rightIris: Iris.Forward, muzzle: Muzzle.Frown, extra: ExpressionExtra.None }),
   hearts: () => ({ left: Eye.ClosedHappy2, leftIris: Iris.Forward, right: Eye.ClosedHappy2, rightIris: Iris.Forward, muzzle: Muzzle.Smile, extra: ExpressionExtra.Blush | ExpressionExtra.Hearts }),
   hug: () => ({ left: Eye.ClosedHappy, leftIris: Iris.Forward, right: Eye.ClosedHappy, rightIris: Iris.Forward, muzzle: Muzzle.Smile, extra: ExpressionExtra.Blush }),
+  kiss: () => ({ left: Eye.ClosedHappy, leftIris: Iris.Forward, right: Eye.ClosedHappy, rightIris: Iris.Forward, muzzle: Muzzle.Kiss, extra: ExpressionExtra.Blush | ExpressionExtra.Hearts }),
 };
 
 const TEMP_EXPRESSION_TIME = 4;
@@ -84,6 +86,7 @@ export class PonyActor {
       case 'lie': return lie;
       case 'dance': return dance;
       case 'fly': return fly;
+      case 'swim': return swim;
       default: return stand;
     }
   }
@@ -93,6 +96,7 @@ export class PonyActor {
     if (anim === lie) return 'lie';
     if (anim === trot) return 'walk';
     if (anim === dance) return 'dance';
+    if (anim === swim) return 'swim';
     if (anim === stand) return 'stand';
     return 'transit';
   }
@@ -107,18 +111,28 @@ export class PonyActor {
       return chain;
     }
 
-    if (current === 'sit') {
+    if (current === 'swim') {
+      if (target === 'stand' || target === 'walk') push(swimToTrot);
+      else if (target === 'fly') push(swimToFly);
+      else if (target === 'sit') { push(swimToTrot); push(sitDown); }
+      else if (target === 'lie') { push(swimToTrot); push(sitDown); push(lieDown); }
+      else if (target === 'dance') push(swimToTrot);
+    } else if (current === 'sit') {
       if (target === 'stand') push(standUp);
       else if (target === 'walk') push(sitToTrot);
       else if (target === 'lie') push(lieDown);
       else if (target === 'dance') { push(standUp); }
       else if (target === 'fly') push(standUp);
+      else if (target === 'swim') push(sitToTrot);
     } else if (current === 'lie') {
       if (target === 'sit') push(sitUp);
       else if (target === 'stand') { push(sitUp); push(standUp); }
       else if (target === 'walk') push(lieToTrot);
       else if (target === 'dance') { push(sitUp); push(standUp); }
       else if (target === 'fly') { push(sitUp); push(standUp); }
+      else if (target === 'swim') push(lieToTrot);
+    } else if (current === 'fly') {
+      if (target === 'swim') push(flyToSwim);
     } else {
       if (target === 'sit') push(sitDown);
       else if (target === 'lie') { push(sitDown); push(lieDown); }
@@ -169,13 +183,20 @@ export class PonyActor {
 
     const currentPose = this.poseOf(this.state.animation);
 
-    if (anim === boop && currentPose !== 'stand') {
+    if (anim === boop && currentPose !== 'stand' && currentPose !== 'walk') {
       return;
     }
 
     this.chain = [anim, this.baseAnimFor(returnTo || this.target)];
     this.chainIndex = 0;
     this.setAnim(anim);
+  }
+
+  applyExpression(expression: Expression | undefined) {
+    if (!expression) return;
+
+    this.tempExpression = expression;
+    this.tempExpressionTimer = TEMP_EXPRESSION_TIME;
   }
 
   playHead(name: string) {

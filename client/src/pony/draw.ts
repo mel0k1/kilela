@@ -284,7 +284,7 @@ function expressionBaseEyes(look: PaletteLook): [Eye, Eye] {
   return [expr ? expr.left : Eye.Neutral, expr ? expr.right : Eye.Neutral];
 }
 
-export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, flipped: boolean) {
+export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, flipped: boolean, swimming = false) {
   const anim = state.animation;
   const frame = getPonyAnimationFrame(anim.frames, state.animationFrame, defaultBodyFrame) as BodyAnimationFrame;
   const headAnim = state.headAnimation || defaultHeadAnimation;
@@ -314,7 +314,11 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   const backOffset = at(backAccessoryOffsets, body);
   const sock = look.legAccessory;
 
-  if (anim.shadow && anim.shadow.length > 0) {
+  if (swimming) {
+    batch.crop(0, 0, PONY_WIDTH, PONY_HEIGHT - 5);
+  }
+
+  if (anim.shadow && anim.shadow.length > 0 && !swimming) {
     const shadow = anim.shadow[state.animationFrame % anim.shadow.length];
     const shadowSprite = (sprites.ponyShadows as any[])[shadow.frame % sprites.ponyShadows.length];
 
@@ -515,6 +519,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   }
 
   batch.restore();
+
+  if (swimming) {
+    batch.clearCrop();
+  }
 }
 
 const cache = new Map<string, { canvas: HTMLCanvasElement; used: number }>();
@@ -555,8 +563,8 @@ export function bakePony(key: string, look: PaletteLook, state: PonyState, flipp
   return canvas;
 }
 
-export function drawPonyToCanvas(canvas: HTMLCanvasElement, look: PaletteLook, state: PonyState, flipped: boolean) {
+export function drawPonyToCanvas(canvas: HTMLCanvasElement, look: PaletteLook, state: PonyState, flipped: boolean, swimming = false) {
   const batch = new PonyBatch(canvas);
-  drawPony(batch, look, state, flipped);
+  drawPony(batch, look, state, flipped, swimming);
   batch.flush();
 }
