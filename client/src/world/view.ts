@@ -4,7 +4,7 @@ import {
   makeGlowTexture, hashPosition, MAP_PALETTES,
 } from './scenery';
 import { getMap, type MapDef } from '../../../shared/protocol';
-import { bakePony, PONY_WIDTH } from '../pony/draw';
+import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
 import type { PonyActor } from '../pony/anim';
 import type { PaletteLook } from '../pony/look';
 
@@ -30,6 +30,7 @@ interface EntityView {
   look: PaletteLook;
   lookCode: string;
   sprite: Sprite;
+  canvas: HTMLCanvasElement;
   label: Text;
   bubbleText: Text | undefined;
   bubbleBg: Graphics | undefined;
@@ -236,7 +237,12 @@ export class WorldView {
   }
 
   addEntity(id: number, name: string, look: PaletteLook, lookCode: string, actor: PonyActor, x: number, y: number) {
-    const sprite = new Sprite();
+    const canvas = document.createElement('canvas');
+    canvas.width = PONY_WIDTH;
+    canvas.height = 70;
+    drawPonyToCanvas(canvas, look, actor.state, false);
+    const texture = Texture.from(canvas);
+    const sprite = new Sprite(texture);
     sprite.anchor.set(0.5, 1);
     const label = new Text({
       text: name,
@@ -247,7 +253,7 @@ export class WorldView {
     this.mainLayer.addChild(label);
 
     const view: EntityView = {
-      id, name, actor, look, lookCode, sprite, label,
+      id, name, actor, look, lookCode, sprite, canvas, label,
       bubbleText: undefined, bubbleBg: undefined, bubbleTimer: 0,
       x, y, dir: 0,
     };
@@ -343,12 +349,8 @@ export class WorldView {
     for (const view of this.entities.values()) {
       view.actor.update(dt);
       const flipped = view.dir === 2;
-      const expr = view.actor.state.expression;
-      const exprKey = expr ? `${expr.left},${expr.right},${expr.muzzle},${expr.extra}` : '-';
-      const key = `${view.lookCode}|${flipped ? 1 : 0}|${view.actor.state.animation.name}|${view.actor.state.animationFrame}|${view.actor.state.headAnimation?.name || '-'}|${view.actor.state.headAnimationFrame}|${view.actor.state.blinkFrame}|${exprKey}`;
-      const canvas = bakePony(key, view.look, view.actor.state, flipped);
-      view.sprite.texture = canvasTexture(canvas);
-      view.sprite.scale.set(1, 1);
+      drawPonyToCanvas(view.canvas, view.look, view.actor.state, flipped);
+      (view.sprite.texture as Texture).source.update();
 
       if (view.bubbleTimer > 0) {
         view.bubbleTimer -= dt;
