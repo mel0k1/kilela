@@ -104,6 +104,8 @@ function startGame(app: Application, name: string, look: Look) {
     },
   });
 
+  (window as unknown as { game: Game }).game = game;
+
   function togglePhoto() {
     photoMode = !photoMode;
     document.body.classList.toggle('photo-mode', photoMode);

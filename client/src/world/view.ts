@@ -1,8 +1,6 @@
 import { Application, Container, Sprite, Texture, Text, Graphics } from 'pixi.js';
-import {
-  TILE, makeTileTexture, makePathTexture, makeTreeTexture, makeSoftCircleTexture,
-  makeGlowTexture, hashPosition, MAP_PALETTES,
-} from './scenery';
+import { makeSoftCircleTexture, makeGlowTexture, hashPosition } from './scenery';
+import { TILE_W, TILE_H, createMapTiles, tileTexture, objectDefs, objectTexture, objectHeight, type MapTiles } from './tiles';
 import { getMap, type MapDef } from '../../../shared/protocol';
 import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
 import type { PonyActor } from '../pony/anim';
@@ -22,6 +20,7 @@ export function canvasTexture(canvas: HTMLCanvasElement): Texture {
 }
 
 const DAY_LENGTH = 360;
+const WATER_FPS = 6;
 
 interface EntityView {
   id: number;
@@ -53,9 +52,10 @@ export class WorldView {
   readonly weatherLayer = new Container();
   readonly fadeLayer = new Container();
   private app!: Application;
+  private tiles: MapTiles | undefined;
   private tilePool: Sprite[] = [];
-  private tileTextures: Texture[] = [];
-  private pathTexture: Texture | undefined;
+  private bgRect = new Graphics();
+  private waterFrame = 0;
   private treeTextures: Texture[] = [];
   private trees: TreeDef[] = [];
   private treeSprites: Sprite[] = [];
@@ -82,6 +82,7 @@ export class WorldView {
     this.app = app;
     this.mainLayer.sortableChildren = true;
     app.stage.addChild(this.tileLayer);
+    this.tileLayer.addChild(this.bgRect);
     app.stage.addChild(this.mainLayer);
     app.stage.addChild(this.nightLayer);
     this.nightLayer.addChild(this.nightRect);
@@ -127,20 +128,20 @@ export class WorldView {
     return (this.time / DAY_LENGTH) % 1;
   }
 
+  isWaterAt(tx: number, ty: number): boolean {
+    if (!this.tiles || tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return false;
+
+    return this.tiles.grid[tx + ty * this.map.w] === 2;
+  }
+
   buildMap(mapId: string) {
     this.map = getMap(mapId);
-    this.tileTextures = [];
+    this.tiles = createMapTiles(this.map);
+    this.bgRect.clear();
+    this.bgRect.rect(0, 0, this.map.w * TILE_W, this.map.h * TILE_H).fill(this.tiles.background);
 
-    for (let v = 0; v < 8; v++) {
-      this.tileTextures.push(canvasTexture(makeTileTexture(mapId, v)));
-    }
-
-    this.pathTexture = canvasTexture(makePathTexture(mapId));
-    this.treeTextures = [];
-
-    for (let k = 0; k < 3; k++) {
-      this.treeTextures.push(canvasTexture(makeTreeTexture(mapId, k)));
-    }
+    const kinds = objectDefs(mapId);
+    this.treeTextures = kinds.map(kind => objectTexture(mapId, kind));
 
     for (const treeSprite of this.treeSprites) {
       treeSprite.destroy();
@@ -156,19 +157,21 @@ export class WorldView {
     this.trees = this.generateTrees();
 
     for (const tree of this.trees) {
+      const kind = kinds[tree.kind];
+      const base = tree.y * TILE_H + TILE_H;
       const shadow = new Sprite(this.shadowTexture!);
       shadow.anchor.set(0.5, 0.5);
       shadow.scale.set(1.3, 0.55);
       shadow.alpha = 0.2;
-      shadow.position.set(tree.x * TILE + TILE / 2 - 6, tree.y * TILE + TILE - 4);
-      shadow.zIndex = tree.y * TILE + TILE - 3.5;
+      shadow.position.set(tree.x * TILE_W + TILE_W / 2 - 6, base - 4);
+      shadow.zIndex = base - 3.5;
       this.mainLayer.addChild(shadow);
       this.treeShadowSprites.push(shadow);
 
       const sprite = new Sprite(this.treeTextures[tree.kind]);
       sprite.anchor.set(0.5, 1);
-      sprite.position.set(tree.x * TILE + TILE / 2, tree.y * TILE + TILE - 2);
-      sprite.zIndex = tree.y * TILE + TILE - 3;
+      sprite.position.set(tree.x * TILE_W + TILE_W / 2, base - 2);
+      sprite.zIndex = base - 3;
       this.mainLayer.addChild(sprite);
       this.treeSprites.push(sprite);
     }
@@ -189,7 +192,7 @@ export class WorldView {
         style: { fontFamily: 'Trebuchet MS, sans-serif', fontSize: 13, fill: 0xfff6dd, stroke: { color: 0x5a4632, width: 3 } },
       });
       label.anchor.set(0.5, 1);
-      label.position.set(portal.x * TILE + TILE / 2, portal.y * TILE - 26);
+      label.position.set(portal.x * TILE_W + TILE_W / 2, portal.y * TILE_H - 26);
       label.zIndex = 100000;
       this.mainLayer.addChild(glow);
       this.mainLayer.addChild(label);
@@ -208,17 +211,19 @@ export class WorldView {
     const trees: TreeDef[] = [];
     const { w, h } = this.map;
     const pathY = this.map.spawnY;
+    const density = this.map.weather === 'fog' ? 30 : this.map.weather === 'snow' ? 10 : 8;
 
     for (let gy = 2; gy < h - 2; gy++) {
       for (let gx = 2; gx < w - 2; gx++) {
         const hash = hashPosition(this.map.id, gx, gy);
-        const density = this.map.weather === 'fog' ? 10 : this.map.weather === 'snow' ? 6 : 5;
 
         if (hash % 100 >= density) {
           continue;
         }
 
         if (Math.abs(gy - pathY) <= 1) continue;
+
+        if (this.tiles && this.tiles.grid[gx + gy * w] !== 1) continue;
 
         const nearPortal = this.map.portals.some(
           p => Math.abs(p.x - gx) < 4 && Math.abs(p.y - gy) < 4,
@@ -227,9 +232,7 @@ export class WorldView {
 
         if (nearPortal || nearSpawn) continue;
 
-        if (hash % 97 < 5) {
-          trees.push({ x: gx, y: gy, kind: hash % 3 });
-        }
+        trees.push({ x: gx, y: gy, kind: hash % 3 });
       }
     }
 
@@ -276,8 +279,8 @@ export class WorldView {
   }
 
   placeEntityAtTile(view: EntityView) {
-    const px = view.x * TILE + TILE / 2;
-    const py = view.y * TILE + TILE;
+    const px = view.x * TILE_W + TILE_W / 2;
+    const py = view.y * TILE_H + TILE_H;
     view.sprite.position.set(px, py);
     view.sprite.zIndex = py;
     view.label.position.set(px, py - 72);
@@ -342,12 +345,14 @@ export class WorldView {
 
   update(dt: number, playerX: number, playerY: number, playerDir: number) {
     this.time += dt;
+    this.waterFrame = Math.floor(this.time * WATER_FPS) % 4;
 
     const screenW = this.app.renderer.width / this.app.renderer.resolution;
     const screenH = this.app.renderer.height / this.app.renderer.resolution;
 
     for (const view of this.entities.values()) {
       view.actor.update(dt);
+      this.placeEntityAtTile(view);
       const flipped = view.dir === 2;
       drawPonyToCanvas(view.canvas, view.look, view.actor.state, flipped);
       (view.sprite.texture as Texture).source.update();
@@ -364,39 +369,39 @@ export class WorldView {
       }
     }
 
-    const camX = playerX * TILE + TILE / 2;
-    const camY = playerY * TILE + TILE / 2;
-    const mapW = this.map.w * TILE;
-    const mapH = this.map.h * TILE;
+    const camX = playerX * TILE_W + TILE_W / 2;
+    const camY = playerY * TILE_H + TILE_H / 2;
+    const mapW = this.map.w * TILE_W;
+    const mapH = this.map.h * TILE_H;
     const camPX = Math.max(screenW / 2, Math.min(mapW - screenW / 2, camX));
     const camPY = Math.max(screenH / 2, Math.min(mapH - screenH / 2, camY));
     this.tileLayer.position.set(Math.round(screenW / 2 - camPX), Math.round(screenH / 2 - camPY));
     this.mainLayer.position = this.tileLayer.position;
 
-    const tilesX = Math.ceil(screenW / TILE) + 2;
-    const tilesY = Math.ceil(screenH / TILE) + 2;
-    const startTX = Math.floor((camX - screenW / 2) / TILE) - 1;
-    const startTY = Math.floor((camY - screenH / 2) / TILE) - 1;
-    const pathY = this.map.spawnY;
+    const tilesX = Math.ceil(screenW / TILE_W) + 2;
+    const tilesY = Math.ceil(screenH / TILE_H) + 2;
+    const startTX = Math.floor((camX - screenW / 2) / TILE_W) - 1;
+    const startTY = Math.floor((camY - screenH / 2) / TILE_H) - 1;
     let poolIndex = 0;
 
-    for (let ty = startTY; ty < startTY + tilesY; ty++) {
-      for (let tx = startTX; tx < startTX + tilesX; tx++) {
-        if (tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) continue;
+    if (this.tiles) {
+      for (let ty = startTY; ty < startTY + tilesY; ty++) {
+        for (let tx = startTX; tx < startTX + tilesX; tx++) {
+          if (tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) continue;
 
-        let sprite = this.tilePool[poolIndex];
+          let sprite = this.tilePool[poolIndex];
 
-        if (!sprite) {
-          sprite = new Sprite();
-          this.tileLayer.addChild(sprite);
-          this.tilePool.push(sprite);
+          if (!sprite) {
+            sprite = new Sprite();
+            this.tileLayer.addChild(sprite);
+            this.tilePool.push(sprite);
+          }
+
+          const index = this.tiles.indices[tx + ty * this.map.w];
+          sprite.texture = tileTexture(this.tiles, index, this.waterFrame);
+          sprite.position.set(tx * TILE_W, ty * TILE_H);
+          poolIndex++;
         }
-
-        const isPath = ty === pathY || ty === pathY + 1;
-        const hash = hashPosition(this.map.id, tx, ty);
-        sprite.texture = isPath ? this.pathTexture! : this.tileTextures[hash % this.tileTextures.length];
-        sprite.position.set(tx * TILE, ty * TILE);
-        poolIndex++;
       }
     }
 
@@ -405,7 +410,7 @@ export class WorldView {
     }
 
     for (const glow of this.portalGlows) {
-      glow.sprite.position.set(glow.x * TILE + TILE / 2, glow.y * TILE + TILE / 2 - 8);
+      glow.sprite.position.set(glow.x * TILE_W + TILE_W / 2, glow.y * TILE_H + TILE_H / 2 - 8);
       glow.sprite.alpha = 0.55 + Math.sin(this.time * 2.4) * 0.18;
       glow.sprite.scale.set(0.85 + Math.sin(this.time * 1.7) * 0.08);
     }

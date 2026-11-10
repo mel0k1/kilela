@@ -167,8 +167,8 @@ function handleHello(ws: WebSocket, msg: Extract<ClientMsg, { t: 'hello' }>): Pl
     name,
     look,
     map: map.id,
-    x: map.spawnX + (Math.random() * 6 - 3),
-    y: map.spawnY + (Math.random() * 6 - 3),
+    x: map.spawnX,
+    y: map.spawnY,
     dir: 0,
     emote: '',
     bot: false,
@@ -257,12 +257,12 @@ wss.on('connection', ws => {
         break;
       }
       case 'loc': {
-        const portal = findPortal(player);
+        if (player.map !== msg.to) {
+          const portal = findPortal(player);
 
-        if (portal && portal.to === msg.to) {
-          movePlayer(player, portal.to, portal.tx, portal.ty);
-        } else {
-          send(ws, { t: 'err', text: 'Портал не найден.' });
+          if (portal && portal.to === msg.to) {
+            movePlayer(player, portal.to, portal.tx, portal.ty);
+          }
         }
 
         break;

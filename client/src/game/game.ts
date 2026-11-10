@@ -1,5 +1,6 @@
 import { Application } from 'pixi.js';
 import { WorldView, directionFromVector } from '../world/view';
+import { TILE_W, TILE_H } from '../world/tiles';
 import { Net } from '../net';
 import { getMap, type PortalDef } from '../../../shared/protocol';
 import { PonyActor, type Target } from '../pony/anim';
@@ -241,14 +242,20 @@ export class Game {
       const rect = app.canvas.getBoundingClientRect();
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
-      const worldX = (screenX - this.view.tileLayer.position.x) / 32;
-      const worldY = (screenY - this.view.tileLayer.position.y) / 32;
+      const worldX = (screenX - this.view.tileLayer.position.x) / TILE_W;
+      const worldY = (screenY - this.view.tileLayer.position.y) / TILE_H;
       this.walkTarget = { x: worldX, y: worldY };
     });
   }
 
   update(dt: number) {
     if (this.myId < 0) return;
+
+    if (this.pendingPortal && this.view.fadeDir === 0 && this.view.fade === 0) {
+      const portal = this.pendingPortal;
+      this.pendingPortal = undefined;
+      this.rebuildAt(portal.to, portal.x, portal.y);
+    }
 
     if (this.switching) {
       this.switchTimer += dt;
@@ -292,8 +299,25 @@ export class Game {
     if (this.moving) {
       dx /= len;
       dy /= len;
-      this.playerX += dx * SPEED * dt;
-      this.playerY += dy * SPEED * dt;
+      const nx = this.playerX + dx * SPEED * dt;
+      const ny = this.playerY + dy * SPEED * dt;
+      const inWater = this.view.isWaterAt(Math.round(this.playerX), Math.round(this.playerY));
+      const blockX = !inWater && this.view.isWaterAt(Math.round(nx), Math.round(this.playerY));
+      const blockY = !inWater && this.view.isWaterAt(Math.round(this.playerX), Math.round(ny));
+
+      if (!blockX) {
+        this.playerX = nx;
+      }
+
+      if (!blockY) {
+        this.playerY = ny;
+      }
+
+      if (blockX && blockY) {
+        this.moving = false;
+        this.walkTarget = undefined;
+      }
+
       this.playerDir = directionFromVector(dx, dy);
       this.walkTarget = this.keys.size > 0 ? undefined : this.walkTarget;
       sfx.step();
