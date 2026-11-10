@@ -71,7 +71,7 @@ function startGame(app: Application, name: string, look: Look) {
   const hud = new Hud({
     onEmote(action) {
       game.sendEmote(action);
-      hud.markEmoteActive(action === 'stand' || action === 'wake' ? '' : action);
+      hud.markEmoteActive(action === 'stand' || action === 'wake' || action === 'land' ? '' : action);
     },
     onChatSend(text) {
       game.net.send({ t: 'chat', text });

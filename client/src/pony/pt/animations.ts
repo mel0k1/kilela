@@ -185,6 +185,24 @@ export const lieToTrot = createBodyAnimation('lie-to-trot', 24, false, [
   [1, 1, 0, 0, 8, 16, 8, 16, 0, -2],
 ], [[2, 1], [1, 0], ...repeat(4, [0, 0])]);
 
+const flyLegs = (wing: number, bodyY: number, legY: number) => [
+  1, 1, wing, 0, 34, 34, 26, 26,
+  0, bodyY, 0, -1,
+  9, 5 + legY + bodyY, 9, 5 + legY + bodyY,
+  8, 11 + legY + bodyY, 8, 11 + legY + bodyY,
+];
+
+export const fly = createBodyAnimation('fly', 12, true, [
+  flyLegs(2, 0, 0),
+  flyLegs(3, -1, 0),
+  flyLegs(4, -2, 0),
+  flyLegs(5, -2, 0),
+  flyLegs(6, -1, 0),
+  flyLegs(7, 0, 0),
+  flyLegs(4, 1, 0),
+  flyLegs(3, 0, 0),
+], [[0, 0], [0, 0], [0, -1], [0, -1], [0, 0], [0, 0], [0, 1], [0, 0]]);
+
 export function createHeadFrame([headX = 0, headY = 0, left = 0, right = 0, mouth = 0]: number[]): HeadAnimationFrame {
   return { headX, headY, left, right, mouth };
 }

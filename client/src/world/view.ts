@@ -86,6 +86,7 @@ export class WorldView {
   private wallSprites: Sprite[] = [];
   private decorSprites: Sprite[] = [];
   private blocked: Uint8Array = new Uint8Array(0);
+  private flyBlocked: Uint8Array = new Uint8Array(0);
   private lanternGlows: LanternGlow[] = [];
   private shadowTexture: Texture | undefined;
   private fireflies: Sprite[] = [];
@@ -167,6 +168,16 @@ export class WorldView {
     return this.blocked[tx + ty * this.map.w] === 1;
   }
 
+  isFlyBlockedAt(tx: number, ty: number): boolean {
+    if (tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return true;
+
+    return this.flyBlocked[tx + ty * this.map.w] === 1;
+  }
+
+  computeFlyPath(sx: number, sy: number, tx: number, ty: number): PathPoint[] {
+    return findPath(this.flyBlocked, this.map, sx, sy, tx, ty);
+  }
+
   computePath(sx: number, sy: number, tx: number, ty: number): PathPoint[] {
     return findPath(this.blocked, this.map, sx, sy, tx, ty);
   }
@@ -209,7 +220,9 @@ export class WorldView {
     }
 
     this.lanternGlows = [];
-    this.blocked = buildWorld(this.map).blocked;
+    const world = buildWorld(this.map);
+    this.blocked = world.blocked;
+    this.flyBlocked = world.walls;
     this.trees = treePlacements(this.map, this.tiles.grid);
 
     for (const tree of this.trees) {

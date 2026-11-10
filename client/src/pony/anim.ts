@@ -1,12 +1,12 @@
 import type { BodyAnimation, HeadAnimation, PonyState, Expression } from './pt/interfaces';
 import { ExpressionExtra, Eye, Iris, Muzzle } from './pt/interfaces';
 import {
-  stand, trot, sit, sitDown, standUp, lie, lieDown, sitUp, sitToTrot, lieToTrot, dance, boop,
+  stand, trot, sit, sitDown, standUp, lie, lieDown, sitUp, sitToTrot, lieToTrot, dance, boop, fly,
   smileHead, nom, laugh, yawn, surprise, excite, happyTongue,
 } from './pt/animations';
 import { EXPRESSION_PRESETS } from './look';
 
-export type Target = 'stand' | 'walk' | 'sit' | 'lie' | 'dance';
+export type Target = 'stand' | 'walk' | 'sit' | 'lie' | 'dance' | 'fly';
 
 export type TransitSound = 'sitDown' | 'standUp' | 'lieDown';
 
@@ -83,6 +83,7 @@ export class PonyActor {
       case 'sit': return sit;
       case 'lie': return lie;
       case 'dance': return dance;
+      case 'fly': return fly;
       default: return stand;
     }
   }
@@ -111,11 +112,13 @@ export class PonyActor {
       else if (target === 'walk') push(sitToTrot);
       else if (target === 'lie') push(lieDown);
       else if (target === 'dance') { push(standUp); }
+      else if (target === 'fly') push(standUp);
     } else if (current === 'lie') {
       if (target === 'sit') push(sitUp);
       else if (target === 'stand') { push(sitUp); push(standUp); }
       else if (target === 'walk') push(lieToTrot);
       else if (target === 'dance') { push(sitUp); push(standUp); }
+      else if (target === 'fly') { push(sitUp); push(standUp); }
     } else {
       if (target === 'sit') push(sitDown);
       else if (target === 'lie') { push(sitDown); push(lieDown); }
@@ -143,6 +146,11 @@ export class PonyActor {
       this.setAnim(this.chain[0]);
     } else {
       this.setAnim(this.baseAnimFor(target));
+    }
+
+    if (this.state.animation.loop) {
+      this.chain = [];
+      this.chainIndex = 0;
     }
 
     if (target === 'lie') {

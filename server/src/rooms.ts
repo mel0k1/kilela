@@ -10,6 +10,7 @@ export interface Player {
   y: number;
   dir: number;
   emote: string;
+  flying: boolean;
   bot: boolean;
   botTimer?: number;
 }

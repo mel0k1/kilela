@@ -14,9 +14,12 @@ const MAX_POS_STEP = 3;
 const POS_SAMPLE = 0.25;
 
 const worlds = new Map<string, Uint8Array>();
+const worldWalls = new Map<string, Uint8Array>();
 
 for (const map of MAPS) {
-  worlds.set(map.id, buildWorld(map).blocked);
+  const world = buildWorld(map);
+  worlds.set(map.id, world.blocked);
+  worldWalls.set(map.id, world.walls);
 }
 
 let nextId = 1;
@@ -87,8 +90,8 @@ function sendFix(p: Player, x = p.x, y = p.y) {
   }
 }
 
-function walkable(mapId: string, x: number, y: number): boolean {
-  const blocked = worlds.get(mapId);
+function walkable(mapId: string, x: number, y: number, flying = false): boolean {
+  const blocked = flying ? worldWalls.get(mapId) : worlds.get(mapId);
 
   if (!blocked) return true;
 
@@ -99,7 +102,7 @@ function acceptPosition(p: Player, nx: number, ny: number): void {
   const map = getMap(p.map);
   const x = Math.max(1, Math.min(map.w - 2, nx));
   const y = Math.max(1, Math.min(map.h - 2, ny));
-  const blocked = worlds.get(p.map);
+  const blocked = p.flying ? worldWalls.get(p.map) : worlds.get(p.map);
 
   if (!blocked) {
     p.x = x;
@@ -131,7 +134,7 @@ function acceptPosition(p: Player, nx: number, ny: number): void {
     const px = p.x + (x - p.x) * t;
     const py = p.y + (y - p.y) * t;
 
-    if (!walkable(p.map, px, py)) break;
+    if (!walkable(p.map, px, py, p.flying)) break;
 
     ax = px;
     ay = py;
@@ -255,6 +258,7 @@ function handleHello(ws: WebSocket, msg: Extract<ClientMsg, { t: 'hello' }>): Pl
     y: map.spawnY,
     dir: 0,
     emote: '',
+    flying: false,
     bot: false,
   };
 
@@ -324,6 +328,13 @@ wss.on('connection', ws => {
 
         if (validEmote(action)) {
           player.emote = action;
+
+          if (action === 'fly') {
+            player.flying = true;
+          } else if (action === 'land' || action === 'sit' || action === 'sleep' || action === 'dance' || action === 'wake' || action === 'stand') {
+            player.flying = false;
+          }
+
           broadcast(player.map, { t: 'emote', id: player.id, action });
         }
 
@@ -385,6 +396,7 @@ const bot: Player = {
   y: 86,
   dir: 0,
   emote: '',
+  flying: false,
   bot: true,
 };
 

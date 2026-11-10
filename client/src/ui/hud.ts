@@ -108,6 +108,7 @@ export class Hud {
     });
 
     const emoteBar = el('div', 'emote-bar', this.root);
+    this.addEmote(emoteBar, 'fly', '🪽', 'Взлететь / приземлиться');
     this.addEmote(emoteBar, 'sit', '🪑', 'Сесть / встать');
     this.addEmote(emoteBar, 'sleep', '💤', 'Лечь / встать');
     this.addEmote(emoteBar, 'dance', '💃', 'Танцевать');
@@ -190,7 +191,7 @@ export class Hud {
   }
 
   markEmoteActive(action: string) {
-    for (const key of ['sit', 'sleep', 'dance']) {
+    for (const key of ['sit', 'sleep', 'dance', 'fly']) {
       this.emoteButtons.get(key)?.classList.remove('active');
     }
 

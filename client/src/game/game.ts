@@ -193,6 +193,14 @@ export class Game {
       action = 'stand';
     }
 
+    if (action === 'fly' && this.myActor.target === 'fly') {
+      action = 'land';
+    }
+
+    if (this.myActor.target === 'fly' && (action === 'sit' || action === 'sleep' || action === 'dance' || action === 'stand' || action === 'wake')) {
+      this.net.send({ t: 'emote', action: 'land' });
+    }
+
     this.net.send({ t: 'emote', action });
     this.applyEmote(this.myId, this.myActor, action);
   }
@@ -206,11 +214,15 @@ export class Game {
         break;
       case 'stand':
       case 'wake':
+      case 'land':
         actor.setTarget('stand');
         break;
       case 'sleep':
         actor.setTarget('lie');
         this.view.showEmote(id, 'emote_sleep', 10);
+        break;
+      case 'fly':
+        actor.setTarget('fly');
         break;
       case 'dance':
         actor.setTarget('dance');
@@ -275,7 +287,9 @@ export class Game {
       const screenY = e.clientY - rect.top;
       const worldX = (screenX - this.view.tileLayer.position.x) / TILE_W;
       const worldY = (screenY - this.view.tileLayer.position.y) / TILE_H;
-      const path = this.view.computePath(this.playerX, this.playerY, worldX, worldY);
+      const path = this.myActor.target === 'fly'
+        ? this.view.computeFlyPath(this.playerX, this.playerY, worldX, worldY)
+        : this.view.computePath(this.playerX, this.playerY, worldX, worldY);
       this.walkTarget = path.length > 0 ? path : undefined;
     });
   }
@@ -328,15 +342,20 @@ export class Game {
 
     const len = Math.hypot(dx, dy);
     this.moving = len > 0.01;
+    const flying = this.myActor.target === 'fly';
 
     if (this.moving) {
       dx /= len;
       dy /= len;
-      const nx = this.playerX + dx * SPEED * dt;
-      const ny = this.playerY + dy * SPEED * dt;
-      const inWater = this.view.isBlockedAt(Math.round(this.playerX), Math.round(this.playerY));
-      const blockX = !inWater && this.view.isBlockedAt(Math.round(nx), Math.round(this.playerY));
-      const blockY = !inWater && this.view.isBlockedAt(Math.round(this.playerX), Math.round(ny));
+      const nx = this.playerX + dx * SPEED * (flying ? 1.35 : 1) * dt;
+      const ny = this.playerY + dy * SPEED * (flying ? 1.35 : 1) * dt;
+      const inWater = !flying && this.view.isBlockedAt(Math.round(this.playerX), Math.round(this.playerY));
+      const blockX = flying
+        ? this.view.isFlyBlockedAt(Math.round(nx), Math.round(this.playerY))
+        : !inWater && this.view.isBlockedAt(Math.round(nx), Math.round(this.playerY));
+      const blockY = flying
+        ? this.view.isFlyBlockedAt(Math.round(this.playerX), Math.round(ny))
+        : !inWater && this.view.isBlockedAt(Math.round(this.playerX), Math.round(ny));
 
       if (!blockX) {
         this.playerX = nx;
@@ -372,7 +391,7 @@ export class Game {
     }
 
     if (this.moving) {
-      this.myActor.setTarget('walk');
+      this.myActor.setTarget(flying ? 'fly' : 'walk');
     } else if (this.myActor.target === 'walk') {
       this.myActor.setTarget('stand');
     }
