@@ -8,6 +8,7 @@ export interface HudCallbacks {
   onLogout(): void;
   onPhotoToggle(): void;
   onSoundToggle(): void;
+  onMusicVolume(volume: number): void;
 }
 
 export class Hud {
@@ -20,6 +21,7 @@ export class Hud {
   private cb: HudCallbacks;
   private emoteButtons = new Map<string, HTMLButtonElement>();
   private soundButton: HTMLButtonElement;
+  private musicSlider: HTMLInputElement;
   soundOn = true;
 
   constructor(cb: HudCallbacks) {
@@ -47,6 +49,22 @@ export class Hud {
     this.soundButton.textContent = '🔊';
     this.soundButton.title = 'Звуки (M)';
     this.soundButton.addEventListener('click', () => this.cb.onSoundToggle());
+
+    const musicLabel = el('span', 'music-label', topbar);
+    musicLabel.textContent = '🎵';
+    musicLabel.title = 'Громкость музыки';
+    this.musicSlider = el('input', 'music-slider', topbar) as HTMLInputElement;
+    this.musicSlider.type = 'range';
+    this.musicSlider.min = '0';
+    this.musicSlider.max = '100';
+    this.musicSlider.value = String(Math.round((localStorage.getItem('kilela.music') ? Number(localStorage.getItem('kilela.music')) : 0.45) * 100));
+    this.musicSlider.title = 'Громкость музыки';
+    this.musicSlider.addEventListener('input', () => {
+      this.cb.onMusicVolume(Number(this.musicSlider.value) / 100);
+    });
+    this.musicSlider.addEventListener('change', () => {
+      sfx.play('click');
+    });
     const exitButton = el('button', 'btn small', topbar);
     exitButton.textContent = 'Выход';
     exitButton.addEventListener('click', () => this.cb.onLogout());

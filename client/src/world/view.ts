@@ -1,6 +1,10 @@
 import { Application, Container, Sprite, Texture, Text, Graphics } from 'pixi.js';
 import { makeSoftCircleTexture, makeGlowTexture, hashPosition } from './scenery';
-import { TILE_W, TILE_H, createMapTiles, tileTexture, objectDefs, objectTexture, objectHeight, type MapTiles } from './tiles';
+import {
+  TILE_W, TILE_H, createMapTiles, tileTexture, objectDefs, objectTexture, objectHeight,
+  decorForMap, decorTexture, isGroundDecor, isSolidDecor, markSolidDecor, buildWallPieces, wallTexture, wallSpriteSize,
+  type MapTiles, type WallPiece,
+} from './tiles';
 import { getMap, type MapDef } from '../../../shared/protocol';
 import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
 import type { PonyActor } from '../pony/anim';
@@ -45,6 +49,21 @@ interface TreeDef {
   kind: number;
 }
 
+interface DecorView {
+  kind: string;
+  x: number;
+  y: number;
+  sprite: Sprite;
+  shadowless: boolean;
+}
+
+interface LanternGlow {
+  sprite: Sprite;
+  x: number;
+  y: number;
+  phase: number;
+}
+
 export class WorldView {
   readonly tileLayer = new Container();
   readonly mainLayer = new Container();
@@ -60,6 +79,10 @@ export class WorldView {
   private trees: TreeDef[] = [];
   private treeSprites: Sprite[] = [];
   private treeShadowSprites: Sprite[] = [];
+  private wallSprites: Sprite[] = [];
+  private decorSprites: Sprite[] = [];
+  private blockedTiles = new Set<number>();
+  private lanternGlows: LanternGlow[] = [];
   private shadowTexture: Texture | undefined;
   private fireflies: Sprite[] = [];
   private map: MapDef = getMap('meadow');
@@ -134,6 +157,14 @@ export class WorldView {
     return this.tiles.grid[tx + ty * this.map.w] === 2;
   }
 
+  isBlockedAt(tx: number, ty: number): boolean {
+    if (!this.tiles || tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return true;
+
+    const idx = tx + ty * this.map.w;
+
+    return this.tiles.walls[idx] === 1 || this.tiles.grid[idx] === 2 || this.blockedTiles.has(idx);
+  }
+
   buildMap(mapId: string) {
     this.map = getMap(mapId);
     this.tiles = createMapTiles(this.map);
@@ -154,6 +185,25 @@ export class WorldView {
     }
 
     this.treeShadowSprites = [];
+
+    for (const wallSprite of this.wallSprites) {
+      wallSprite.destroy();
+    }
+
+    this.wallSprites = [];
+
+    for (const decorSprite of this.decorSprites) {
+      decorSprite.destroy();
+    }
+
+    this.decorSprites = [];
+
+    for (const glow of this.lanternGlows) {
+      glow.sprite.destroy();
+    }
+
+    this.lanternGlows = [];
+    this.blockedTiles.clear();
     this.trees = this.generateTrees();
 
     for (const tree of this.trees) {
@@ -175,6 +225,9 @@ export class WorldView {
       this.mainLayer.addChild(sprite);
       this.treeSprites.push(sprite);
     }
+
+    this.buildCaveWalls();
+    this.buildDecor();
 
     for (const glow of this.portalGlows) {
       glow.sprite.destroy();
@@ -204,6 +257,58 @@ export class WorldView {
 
     for (const entity of this.entities.values()) {
       this.placeEntityAtTile(entity);
+    }
+  }
+
+  private buildCaveWalls() {
+    if (!this.tiles) return;
+
+    const pieces: WallPiece[] = buildWallPieces(this.tiles, this.map);
+
+    for (const piece of pieces) {
+      const { w, h, oy } = wallSpriteSize(piece.variant);
+      const sprite = new Sprite(wallTexture(piece.variant));
+      const baseY = (piece.ty + 1) * TILE_H;
+      const topY = baseY - h + oy;
+      sprite.position.set(piece.tx * TILE_W, topY);
+      sprite.zIndex = piece.kind === 'face' ? baseY - 0.1 : baseY - 0.2;
+      this.mainLayer.addChild(sprite);
+      this.wallSprites.push(sprite);
+    }
+  }
+
+  private buildDecor() {
+    if (!this.tiles) return;
+
+    for (const item of decorForMap(this.map, this.tiles)) {
+      const texture = decorTexture(item.kind);
+      const sprite = new Sprite(texture);
+      const base = item.y * TILE_H + TILE_H;
+      sprite.anchor.set(0.5, 1);
+      sprite.position.set(item.x * TILE_W + TILE_W / 2, base - 1);
+
+      if (isGroundDecor(item.kind)) {
+        sprite.zIndex = base - 0.6;
+      } else {
+        sprite.zIndex = base - 2.4;
+      }
+
+      this.mainLayer.addChild(sprite);
+      this.decorSprites.push(sprite);
+
+      if (isSolidDecor(item.kind)) {
+        markSolidDecor(item.kind, item.x, item.y, this.map.w, this.blockedTiles);
+      }
+
+      if (item.kind === 'crystal_lantern') {
+        const glow = new Sprite(canvasTexture(makeGlowTexture()));
+        glow.anchor.set(0.5);
+        glow.tint = 0x9fe8ff;
+        glow.alpha = 0.5;
+        glow.zIndex = base + 0.4;
+        this.mainLayer.addChild(glow);
+        this.lanternGlows.push({ sprite: glow, x: item.x, y: item.y, phase: Math.random() * 6.28 });
+      }
     }
   }
 
@@ -380,8 +485,8 @@ export class WorldView {
 
     const tilesX = Math.ceil(screenW / TILE_W) + 2;
     const tilesY = Math.ceil(screenH / TILE_H) + 2;
-    const startTX = Math.floor((camX - screenW / 2) / TILE_W) - 1;
-    const startTY = Math.floor((camY - screenH / 2) / TILE_H) - 1;
+    const startTX = Math.floor((camPX - screenW / 2) / TILE_W) - 1;
+    const startTY = Math.floor((camPY - screenH / 2) / TILE_H) - 1;
     let poolIndex = 0;
 
     if (this.tiles) {
@@ -398,6 +503,10 @@ export class WorldView {
           }
 
           const index = this.tiles.indices[tx + ty * this.map.w];
+          const typeNumber = index >>> 8;
+
+          if (!this.tiles.sets.has(typeNumber) && typeNumber !== 2) continue;
+
           sprite.texture = tileTexture(this.tiles, index, this.waterFrame);
           sprite.position.set(tx * TILE_W, ty * TILE_H);
           poolIndex++;
@@ -413,6 +522,12 @@ export class WorldView {
       glow.sprite.position.set(glow.x * TILE_W + TILE_W / 2, glow.y * TILE_H + TILE_H / 2 - 8);
       glow.sprite.alpha = 0.55 + Math.sin(this.time * 2.4) * 0.18;
       glow.sprite.scale.set(0.85 + Math.sin(this.time * 1.7) * 0.08);
+    }
+
+    for (const lantern of this.lanternGlows) {
+      lantern.sprite.position.set(lantern.x * TILE_W + TILE_W / 2, lantern.y * TILE_H + TILE_H - 10);
+      lantern.sprite.alpha = 0.5 + Math.sin(this.time * 1.6 + lantern.phase) * 0.16;
+      lantern.sprite.scale.set(1.7 + Math.sin(this.time * 2.1 + lantern.phase) * 0.16);
     }
 
     this.updateDayNight(dt, screenW, screenH);
@@ -441,7 +556,10 @@ export class WorldView {
     let darkness = 0;
     let warmth = 0;
 
-    if (t < 0.42) {
+    if (this.map.weather === 'cave') {
+      darkness = 0.4;
+      warmth = 0;
+    } else if (t < 0.42) {
       darkness = 0;
       warmth = t < 0.06 ? (0.06 - t) * 2 : 0;
     } else if (t < 0.5) {
@@ -474,10 +592,12 @@ export class WorldView {
       shadow.scale.set(1.3 * nightScale, 0.55 * nightScale);
     }
 
-    const flyTarget = this.map.weather === 'snow' ? 0.18 : 0.85;
+    const flyTarget = this.map.weather === 'snow' ? 0.18 : this.map.weather === 'cave' ? 0.6 : 0.85;
+    const flyTint = this.map.weather === 'cave' ? 0x9fe8ff : 0xffffff;
 
     for (let i = 0; i < this.fireflies.length; i++) {
       const fly = this.fireflies[i];
+      fly.tint = flyTint;
       const target = darkness * flyTarget;
       fly.alpha += (target - fly.alpha) * Math.min(1, dt * 2);
 

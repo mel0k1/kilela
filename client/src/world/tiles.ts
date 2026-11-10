@@ -15,6 +15,7 @@ const T_WATER = 2;
 const T_WOOD = 3;
 const T_DIRT = 4;
 const T_ICE = 8;
+const T_STONE = 10;
 
 const TILE_COUNTS: [number, number][] = [[0, 4], [2, 3], [4, 3], [6, 3], [8, 3], [13, 3], [14, 3], [47, 4]];
 export const TILE_COUNT_MAP: number[] = [];
@@ -78,6 +79,7 @@ function tileTypeNumber(type: number): number {
     case T_ICE: return 8;
     case T_DIRT: return 4;
     case T_GRASS: return 1;
+    case T_STONE: return 10;
     default: return 0;
   }
 }
@@ -97,6 +99,7 @@ export interface MapTiles {
   w: number;
   h: number;
   grid: Uint8Array;
+  walls: Uint8Array;
   indices: Int32Array;
   sets: Map<number, TileSet>;
   waterFrames: TileSet[];
@@ -107,6 +110,7 @@ function grassSet(name: string, tileSprites: { sprites: Sprite[]; palettes: Uint
 }
 
 function waterPaletteFor(mapId: string): Uint32Array {
+  if (mapId === 'cave') return sprites.waterTiles1.palettes[3];
   const index = mapId === 'forest' ? 1 : 0;
   return sprites.waterTiles1.palettes[index];
 }
@@ -181,14 +185,74 @@ function buildGrid(map: MapDef): Uint8Array {
     }
   }
 
-  for (let x = 0; x < w; x++) {
-    for (const py of [spawnY, spawnY + 1]) {
-      const type = grid[x + py * w];
+  if (mapId === 'cave') {
+    grid.fill(T_NONE);
 
-      if (mapId === 'meadow' && type === T_WATER) {
-        grid[x + py * w] = T_WOOD;
-      } else if (type === T_GRASS || type === T_DIRT) {
-        grid[x + py * w] = T_DIRT;
+    const carve = (cx: number, cy: number, rx: number, ry: number) => {
+      for (let y = Math.max(1, Math.floor(cy - ry - 3)); y <= Math.min(h - 2, Math.ceil(cy + ry + 3)); y++) {
+        for (let x = Math.max(1, Math.floor(cx - rx - 3)); x <= Math.min(w - 2, Math.ceil(cx + rx + 3)); x++) {
+          const dx = (x - cx) / rx;
+          const dy = (y - cy) / ry;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const noise = valueNoise(mapId, seed + 7, x * 0.55, y * 0.55);
+
+          if (dist < 1 + noise * 0.2) {
+            grid[x + y * w] = T_STONE;
+          }
+        }
+      }
+    };
+
+    const fill = (x0: number, y0: number, x1: number, y1: number) => {
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          if (x > 0 && y > 0 && x < w - 1 && y < h - 1) {
+            grid[x + y * w] = T_STONE;
+          }
+        }
+      }
+    };
+
+    carve(55, 50, 26, 24);
+    carve(26, 62, 10, 9);
+    carve(86, 44, 12, 10);
+    fill(30, 56, 38, 64);
+    fill(74, 42, 82, 50);
+    fill(52, 28, 58, 34);
+
+    const hx = hashPosition(mapId + 'pond', 3, 3);
+    const cx = 58 + (hx % 12);
+    const cy = 58 + (hx % 6);
+    const radius = 3.4 + (hx % 2);
+
+    for (let y = Math.floor(cy - radius - 2); y <= Math.ceil(cy + radius + 2); y++) {
+      for (let x = Math.floor(cx - radius - 2); x <= Math.ceil(cx + radius + 2); x++) {
+        if (x <= 0 || y <= 0 || x >= w - 1 || y >= h - 1) continue;
+
+        if (grid[x + y * w] !== T_STONE) continue;
+
+        const dx = (x - cx) / radius;
+        const dy = (y - cy) / radius;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const noise = valueNoise(mapId, seed + 13, x * 0.4, y * 0.4);
+
+        if (dist < 0.9 + noise * 0.35) {
+          grid[x + y * w] = T_WATER;
+        }
+      }
+    }
+  }
+
+  if (mapId !== 'cave') {
+    for (let x = 0; x < w; x++) {
+      for (const py of [spawnY, spawnY + 1]) {
+        const type = grid[x + py * w];
+
+        if (mapId === 'meadow' && type === T_WATER) {
+          grid[x + py * w] = T_WOOD;
+        } else if (type === T_GRASS || type === T_DIRT) {
+          grid[x + py * w] = T_DIRT;
+        }
       }
     }
   }
@@ -196,31 +260,47 @@ function buildGrid(map: MapDef): Uint8Array {
   return grid;
 }
 
+function buildWalls(map: MapDef, grid: Uint8Array): Uint8Array {
+  const { id: mapId, w, h } = map;
+  const walls = new Uint8Array(w * h);
+
+  if (mapId !== 'cave') return walls;
+
+  for (let i = 0; i < w * h; i++) {
+    walls[i] = grid[i] === T_NONE ? 1 : 0;
+  }
+
+  return walls;
+}
+
 export function createMapTiles(map: MapDef): MapTiles {
   const { id: mapId, w, h, spawnY } = map;
   const grid = buildGrid(map);
+  const walls = buildWalls(map, grid);
   const sets = new Map<number, TileSet>();
 
   if (mapId === 'meadow') {
-    sets.set(T_GRASS, grassSet('grassNew', sprites.grassTilesNew, 0));
-    sets.set(T_DIRT, grassSet('dirt', sprites.grassTiles, 0));
+    sets.set(T_GRASS, grassSet(mapId + '_grassNew', sprites.grassTilesNew, 0));
+    sets.set(T_DIRT, grassSet(mapId + '_dirt', sprites.grassTiles, 0));
   } else if (mapId === 'forest') {
-    sets.set(T_GRASS, grassSet('grass', sprites.grassTiles, 0));
-    sets.set(T_DIRT, grassSet('dirt', sprites.grassTiles, 0));
+    sets.set(T_GRASS, grassSet(mapId + '_grass', sprites.grassTiles, 0));
+    sets.set(T_DIRT, grassSet(mapId + '_dirt', sprites.grassTiles, 0));
+  } else if (mapId === 'cave') {
+    sets.set(T_STONE, grassSet(mapId + '_cave', sprites.caveTiles, 0));
   } else {
-    sets.set(T_GRASS, grassSet('snow', sprites.snowTiles, 0));
-    sets.set(T_DIRT, grassSet('dirtSnow', sprites.snowTiles, 0));
+    sets.set(T_GRASS, grassSet(mapId + '_snow', sprites.snowTiles, 0));
+    sets.set(T_DIRT, grassSet(mapId + '_dirtSnow', sprites.snowTiles, 0));
   }
 
-  sets.set(T_WOOD, grassSet('wood', sprites.woodTiles, 0));
+  sets.set(T_WOOD, grassSet(mapId + '_wood', sprites.woodTiles, 0));
 
   if (mapId === 'peaks') {
-    sets.set(T_ICE, grassSet('ice', sprites.iceTiles, 0));
+    sets.set(T_ICE, grassSet(mapId + '_ice', sprites.iceTiles, 0));
   }
 
   const waterPalette = waterPaletteFor(mapId);
   const waterFrames: TileSet[] = [sprites.waterTiles1, sprites.waterTiles2, sprites.waterTiles3, sprites.waterTiles4]
-    .map((ts, i) => ({ name: `water${i + 1}`, sprites: ts.sprites, palette: waterPalette }));
+    .map((ts, i) => ({ name: `${mapId}_water${i + 1}`, sprites: ts.sprites, palette: waterPalette }));
 
   const indices = new Int32Array(w * h);
 
@@ -230,9 +310,9 @@ export function createMapTiles(map: MapDef): MapTiles {
     }
   }
 
-  const background = mapId === 'meadow' ? '#5797c7' : mapId === 'forest' ? '#5e9463' : '#a9b8c9';
+  const background = mapId === 'meadow' ? '#5797c7' : mapId === 'forest' ? '#5e9463' : mapId === 'cave' ? '#141118' : '#a9b8c9';
 
-  return { background, w, h, grid, indices, sets, waterFrames };
+  return { background, w, h, grid, walls, indices, sets, waterFrames };
 }
 
 function getTileIndex(grid: Uint8Array, w: number, h: number, x: number, y: number, mapId: string): number {
@@ -305,6 +385,387 @@ export function tileTexture(tiles: MapTiles, tileIndex: number, waterFrame: numb
   return bakeTileTexture(set, spriteIndex);
 }
 
+export interface DecorSpriteDef {
+  name: string;
+  sprite: Sprite;
+  shadow: Sprite | undefined;
+  palette: Uint32Array;
+  solid: boolean;
+  ground: boolean;
+}
+
+interface DecorSource {
+  color: Sprite;
+  shadow?: Sprite | undefined;
+  palettes?: Uint32Array[] | undefined;
+}
+
+interface DecorPlacement {
+  x: number;
+  y: number;
+  kind: string;
+}
+
+const decorDefs = new Map<string, DecorSpriteDef>();
+
+function defineDecor(
+  name: string,
+  source: DecorSource,
+  paletteIndex: number,
+  options: { solid?: boolean; ground?: boolean } = {},
+) {
+  decorDefs.set(name, {
+    name,
+    sprite: source.color,
+    shadow: source.shadow,
+    palette: (source.palettes?.[paletteIndex] || new Uint32Array(0)) as Uint32Array,
+    solid: options.solid ?? false,
+    ground: options.ground ?? false,
+  });
+}
+
+let decorReady = false;
+
+function ensureDecorDefs() {
+  if (decorReady) return;
+
+  decorReady = true;
+  defineDecor('fence_a', sprites.fence_1, 0, { solid: true });
+  defineDecor('fence_b', sprites.fence_2, 0, { solid: true });
+  defineDecor('fence_c', sprites.fence_3, 0, { solid: true });
+  defineDecor('fence_winter_a', sprites.fence_winter_1, 0, { solid: true });
+  defineDecor('fence_winter_b', sprites.fence_winter_2, 0, { solid: true });
+  defineDecor('wooden_fence_h1', sprites.wooden_fence_horizontal1, 0, { solid: true });
+  defineDecor('wooden_fence_pole1', sprites.wooden_fence_pole1, 0, { solid: true });
+  defineDecor('stone_wall_h1', sprites.stone_wall_horizontal1, 0, { solid: true });
+  defineDecor('stone_wall_pole1', sprites.stone_wall_pole1, 0, { solid: true });
+  defineDecor('bench', sprites.bench_1, 0, { solid: true });
+  defineDecor('barrel', sprites.barrel, 0, { solid: true });
+  defineDecor('crate', sprites.crate_1, 0, { solid: true });
+  defineDecor('sign_a', sprites.sign_1, 0, { solid: true });
+  defineDecor('sign_b', sprites.sign_2, 0, { solid: true });
+  defineDecor('sign_winter', sprites.sign_winter, 0, { solid: true });
+  defineDecor('flower_patch_a', sprites.flower_patch4, 0, { ground: true });
+  defineDecor('flower_patch_b', sprites.flower_patch5, 0, { ground: true });
+  defineDecor('flower_patch_c', sprites.flower_patch6, 0, { ground: true });
+  defineDecor('flower_patch_d', sprites.flower_patch7, 0, { ground: true });
+  defineDecor('snowpony_a', sprites.snowpony_2, 0);
+  defineDecor('snowpony_b', sprites.snowpony_5, 0);
+  defineDecor('crystals_a', sprites.crystals_1, 0, { solid: true });
+  defineDecor('crystals_b', sprites.crystals_4, 0, { solid: true });
+  defineDecor('crystals_c', sprites.crystals_7, 0, { solid: true });
+  defineDecor('crystal_lantern', sprites.crystal_lantern, 0, { solid: true });
+  defineDecor('mine_entrance', sprites.mine_entrance, 0, { solid: true });
+}
+
+const decorTextures = new Map<string, Texture>();
+
+export function decorTexture(name: string): Texture {
+  ensureDecorDefs();
+  const cached = decorTextures.get(name);
+
+  if (cached) return cached;
+
+  const def = decorDefs.get(name);
+
+  if (!def) return Texture.WHITE;
+
+  const { sprite, shadow, palette } = def;
+  const width = Math.max(sprite.w, shadow ? shadow.ox + shadow.w : 0) + 2;
+  const height = Math.max(sprite.h, shadow ? shadow.oy + shadow.h : 0) + 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const batch = new PonyBatch(canvas);
+
+  if (shadow) {
+    batch.drawSprite(shadow, WHITE, palette, 0, 0);
+  }
+
+  batch.drawSprite(sprite, WHITE, palette, 0, 0);
+  batch.flush();
+
+  const baked = Texture.from(canvas);
+  decorTextures.set(name, baked);
+  return baked;
+}
+
+export function isGroundDecor(name: string): boolean {
+  ensureDecorDefs();
+  return decorDefs.get(name)?.ground ?? false;
+}
+
+export function isSolidDecor(name: string): boolean {
+  ensureDecorDefs();
+  return decorDefs.get(name)?.solid ?? false;
+}
+
+export function markSolidDecor(kind: string, x: number, y: number, w: number, blocked: Set<number>): void {
+  ensureDecorDefs();
+  const def = decorDefs.get(kind);
+
+  if (!def || !def.solid) return;
+
+  const span = Math.max(1, Math.ceil(def.sprite.w / TILE_W));
+
+  for (let i = 0; i < span; i++) {
+    const tx = x + i;
+
+    if (tx >= 0 && tx < w) {
+      blocked.add(tx + y * w);
+    }
+  }
+}
+
+export interface WallPiece {
+  kind: 'face' | 'rim';
+  variant: string;
+  tx: number;
+  ty: number;
+}
+
+const WALL_FACE_STRAIGHT = ['cave_s1', 'cave_s2', 'cave_s3', 'cave_sb'] as const;
+const RIM_KINDS = {
+  n: 'cave_top_n',
+  nw: 'cave_top_nw',
+  ne: 'cave_top_ne',
+  w: 'cave_top_w',
+  e: 'cave_top_e',
+} as const;
+
+const wallSources: Record<string, DecorSource> = {
+  cave_s1: sprites.cave_walls_s1,
+  cave_s2: sprites.cave_walls_s2,
+  cave_s3: sprites.cave_walls_s3,
+  cave_sb: sprites.cave_walls_sb,
+  cave_sw: sprites.cave_walls_sw,
+  cave_se: sprites.cave_walls_se,
+  cave_top_n: sprites.cave_walls_top_n,
+  cave_top_nw: sprites.cave_walls_top_nw,
+  cave_top_ne: sprites.cave_walls_top_ne,
+  cave_top_w: sprites.cave_walls_top_w,
+  cave_top_e: sprites.cave_walls_top_e,
+};
+
+const wallTextureCache = new Map<string, Texture>();
+
+export function wallTexture(variant: string): Texture {
+  const cached = wallTextureCache.get(variant);
+
+  if (cached) return cached;
+
+  const source = wallSources[variant];
+
+  if (!source) return Texture.WHITE;
+
+  const sprite = source.color;
+  const canvas = document.createElement('canvas');
+  canvas.width = sprite.w;
+  canvas.height = sprite.h;
+  const batch = new PonyBatch(canvas);
+  batch.drawSprite(sprite, WHITE, (source.palettes?.[0] || new Uint32Array(0)) as Uint32Array, 0, 0);
+  batch.flush();
+
+  const baked = Texture.from(canvas);
+  wallTextureCache.set(variant, baked);
+  return baked;
+}
+
+export function wallSpriteSize(variant: string): { w: number; h: number; oy: number } {
+  const source = wallSources[variant];
+
+  if (!source) return { w: TILE_W, h: TILE_H, oy: 0 };
+
+  return { w: source.color.w, h: source.color.h, oy: source.color.oy };
+}
+
+export function buildWallPieces(tiles: MapTiles, map: MapDef): WallPiece[] {
+  const pieces: WallPiece[] = [];
+
+  if (map.id !== 'cave') return pieces;
+
+  const { w, h } = map;
+  const wall = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && tiles.walls[x + y * w] === 1;
+  const floorAt = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && tiles.walls[x + y * w] === 0;
+
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (!wall(x, y)) continue;
+
+      const floorS = floorAt(x, y + 1);
+      const floorN = floorAt(x, y - 1);
+      const floorW = floorAt(x - 1, y);
+      const floorE = floorAt(x + 1, y);
+
+      if (floorS) {
+        const runW = wall(x - 1, y) && !wall(x - 1, y + 1);
+        const runE = wall(x + 1, y) && !wall(x + 1, y + 1);
+        let variant: string;
+
+        if (!runW && !runE) {
+          variant = 'cave_sb';
+        } else if (!runW) {
+          variant = 'cave_sw';
+        } else if (!runE) {
+          variant = 'cave_se';
+        } else {
+          variant = WALL_FACE_STRAIGHT[hashPosition('wallface', x, y) % 3];
+        }
+
+        pieces.push({ kind: 'face', variant, tx: x, ty: y });
+      } else {
+        for (let k = 2; k <= 3; k++) {
+          const deepFloor = floorAt(x, y + k) && wall(x, y + 1);
+
+          if (deepFloor) {
+            const variant = WALL_FACE_STRAIGHT[hashPosition('wallface2', x, y) % 3];
+            pieces.push({ kind: 'face', variant, tx: x, ty: y + k - 1 });
+            break;
+          }
+        }
+
+        if (floorN && floorW) {
+          pieces.push({ kind: 'rim', variant: RIM_KINDS.nw, tx: x, ty: y });
+        } else if (floorN && floorE) {
+          pieces.push({ kind: 'rim', variant: RIM_KINDS.ne, tx: x, ty: y });
+        } else if (floorN) {
+          pieces.push({ kind: 'rim', variant: RIM_KINDS.n, tx: x, ty: y });
+        } else if (floorW) {
+          pieces.push({ kind: 'rim', variant: RIM_KINDS.w, tx: x, ty: y });
+        } else if (floorE) {
+          pieces.push({ kind: 'rim', variant: RIM_KINDS.e, tx: x, ty: y });
+        }
+      }
+    }
+  }
+
+  return pieces;
+}
+
+export function decorForMap(map: MapDef, tiles: MapTiles): DecorPlacement[] {
+  ensureDecorDefs();
+  const { id: mapId, w, h, spawnX, spawnY, portals } = map;
+  const placements: DecorPlacement[] = [];
+  const taken = new Set<number>();
+
+  const free = (x: number, y: number, span = 1) => {
+    for (let i = 0; i < span; i++) {
+      const idx = (x + i) + y * w;
+
+      if (x + i < 1 || x + i >= w - 1 || y < 1 || y >= h - 1) return false;
+
+      if (tiles.grid[idx] === T_WATER || tiles.walls[idx] === 1) return false;
+
+      if (tiles.grid[idx] !== T_GRASS && tiles.grid[idx] !== T_DIRT && tiles.grid[idx] !== T_STONE) return false;
+
+      if (taken.has(idx)) return false;
+
+      if (Math.abs(y - spawnY) <= 1 && Math.abs(x + i - spawnX) < 3) return false;
+
+      if (portals.some(p => Math.abs(p.x - (x + i)) < 3 && Math.abs(p.y - y) < 3)) return false;
+    }
+
+    return true;
+  };
+
+  const place = (x: number, y: number, kind: string, span = 1, force = false) => {
+    if (!force && !free(x, y, span)) return;
+
+    for (let i = 0; i < span; i++) {
+      taken.add((x + i) + y * w);
+    }
+
+    placements.push({ x, y, kind });
+  };
+
+  const spanOf = (kind: string) => {
+    ensureDecorDefs();
+    const def = decorDefs.get(kind);
+    return def ? Math.ceil(def.sprite.w / TILE_W) : 1;
+  };
+
+  const put = (x: number, y: number, kind: string) => {
+    place(x, y, kind, spanOf(kind));
+  };
+
+  if (mapId === 'meadow') {
+    place(80, 29, 'mine_entrance', spanOf('mine_entrance'), true);
+    put(83, 30, 'sign_b');
+    put(spawnX - 10, spawnY + 4, 'fence_b');
+    put(spawnX + 2, spawnY + 4, 'fence_c');
+    put(spawnX + 14, spawnY - 6, 'fence_a');
+    put(spawnX - 18, spawnY - 12, 'bench');
+    put(spawnX - 16, spawnY - 12, 'barrel');
+    put(spawnX + 12, spawnY + 6, 'crate');
+    put(spawnX + 13, spawnY + 6, 'sign_a');
+
+    for (let i = 0; i < 10; i++) {
+      const hash = hashPosition('meadowflower', i, 7);
+      const x = 6 + (hash % (w - 12));
+      const y = 6 + (hashPosition('meadowflower2', i, 3) % (h - 12));
+      const kinds = ['flower_patch_a', 'flower_patch_b', 'flower_patch_c', 'flower_patch_d'];
+
+      if (y > spawnY - 3 && y < spawnY + 8) continue;
+
+      place(x, y, kinds[hash % 4], spanOf(kinds[hash % 4]));
+    }
+  } else if (mapId === 'forest') {
+    put(spawnX - 8, spawnY + 3, 'wooden_fence_h1');
+    put(spawnX - 6, spawnY + 3, 'wooden_fence_pole1');
+    put(spawnX - 5, spawnY + 3, 'wooden_fence_h1');
+    put(spawnX + 1, spawnY + 3, 'wooden_fence_h1');
+    put(spawnX + 3, spawnY + 3, 'wooden_fence_pole1');
+    put(spawnX + 4, spawnY + 3, 'wooden_fence_h1');
+    put(spawnX - 12, spawnY - 4, 'barrel');
+    put(spawnX + 9, spawnY - 6, 'crate');
+    put(spawnX + 14, spawnY + 2, 'sign_a');
+
+    for (let i = 0; i < 6; i++) {
+      const hash = hashPosition('forestcrate', i, 11);
+      const x = 8 + (hash % (w - 16));
+      const y = 8 + (hashPosition('forestcrate2', i, 5) % (h - 16));
+
+      if (y > spawnY - 4 && y < spawnY + 6) continue;
+
+      place(x, y, i % 2 ? 'barrel' : 'crate', 1);
+    }
+  } else if (mapId === 'peaks') {
+    put(spawnX + 4, spawnY + 3, 'fence_winter_a');
+    put(spawnX - 9, spawnY + 3, 'fence_winter_b');
+    put(spawnX + 6, spawnY - 5, 'stone_wall_h1');
+    put(spawnX + 3, spawnY - 5, 'stone_wall_pole1');
+    put(spawnX + 1, spawnY - 5, 'stone_wall_h1');
+    put(spawnX - 14, spawnY + 2, 'snowpony_a');
+    put(spawnX + 16, spawnY - 8, 'snowpony_b');
+    put(spawnX - 6, spawnY - 8, 'sign_winter');
+    put(spawnX + 12, spawnY + 5, 'barrel');
+  } else if (mapId === 'cave') {
+    put(59, 33, 'crystal_lantern');
+    put(51, 33, 'crystal_lantern');
+    put(spawnX + 2, spawnY - 1, 'barrel');
+    put(spawnX - 3, spawnY + 2, 'crate');
+
+    for (let i = 0; i < 14; i++) {
+      const hash = hashPosition('cavecrystal', i, 9);
+      const x = 6 + (hash % (w - 12));
+      const y = 6 + (hashPosition('cavecrystal2', i, 4) % (h - 12));
+      const kinds = ['crystals_a', 'crystals_b', 'crystals_c'];
+
+      place(x, y, kinds[hash % 3], 1);
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const hash = hashPosition('cavelantern', i, 21);
+      const x = 10 + (hash % (w - 20));
+      const y = 10 + (hashPosition('cavelantern2', i, 13) % (h - 20));
+
+      place(x, y, 'crystal_lantern', 1);
+    }
+  }
+
+  return placements;
+}
+
 export interface ObjectSpriteDef {
   name: string;
   sprite: Sprite;
@@ -314,18 +775,19 @@ export interface ObjectSpriteDef {
 
 const objects = new Map<string, ObjectSpriteDef>();
 
-function defineObject(name: string, source: { color: Sprite; shadow?: Sprite; palettes: Uint32Array[] }, paletteIndex: number) {
+function defineObject(name: string, source: DecorSource, paletteIndex: number) {
   objects.set(name, {
     name,
     sprite: source.color,
     shadow: source.shadow,
-    palette: source.palettes[paletteIndex],
+    palette: (source.palettes?.[paletteIndex] || new Uint32Array(0)) as Uint32Array,
   });
 }
 
 export function objectDefs(mapId: string): string[] {
   if (mapId === 'meadow') return ['tree_big', 'tree_mid', 'bush'];
   if (mapId === 'forest') return ['tree_forest', 'tree_mid_forest', 'bush_forest'];
+  if (mapId === 'cave') return ['crystal_stone'];
   return ['tree_winter', 'rock_a', 'rock_b'];
 }
 
@@ -341,6 +803,7 @@ function ensureObjects() {
   defineObject('tree_winter', sprites.tree_3, 1);
   defineObject('rock_a', sprites.rock_1, 0);
   defineObject('rock_b', sprites.rock_2, 0);
+  defineObject('crystal_stone', sprites.rock_1, 0);
 }
 
 const objectTextures = new Map<string, Texture>();

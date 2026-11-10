@@ -95,6 +95,8 @@ export class Game {
 
         if (msg.id === this.myId) return;
 
+        this.view.removeEntity(msg.id);
+
         const look = buildPaletteLook(decodeLook(msg.look));
         const actor = new PonyActor();
         actor.setTarget('stand');
@@ -151,6 +153,12 @@ export class Game {
   }
 
   private enterMap(mapId: string) {
+    for (const id of [...this.view.entities.keys()]) {
+      if (id !== this.myId) {
+        this.view.removeEntity(id);
+      }
+    }
+
     this.view.buildMap(mapId);
     const map = getMap(mapId);
     this.cb.onMap(map.id, map.name);
@@ -301,9 +309,9 @@ export class Game {
       dy /= len;
       const nx = this.playerX + dx * SPEED * dt;
       const ny = this.playerY + dy * SPEED * dt;
-      const inWater = this.view.isWaterAt(Math.round(this.playerX), Math.round(this.playerY));
-      const blockX = !inWater && this.view.isWaterAt(Math.round(nx), Math.round(this.playerY));
-      const blockY = !inWater && this.view.isWaterAt(Math.round(this.playerX), Math.round(ny));
+      const inWater = this.view.isBlockedAt(Math.round(this.playerX), Math.round(this.playerY));
+      const blockX = !inWater && this.view.isBlockedAt(Math.round(nx), Math.round(this.playerY));
+      const blockY = !inWater && this.view.isBlockedAt(Math.round(this.playerX), Math.round(ny));
 
       if (!blockX) {
         this.playerX = nx;
@@ -368,6 +376,7 @@ export class Game {
     this.switching = true;
     this.switchTimer = 0;
     this.walkTarget = undefined;
+    this.net.send({ t: 'pos', x: Math.round(this.playerX * 10) / 10, y: Math.round(this.playerY * 10) / 10, dir: this.playerDir });
     this.net.send({ t: 'loc', to: portal.to });
     this.view.fadeDir = 1;
     sfx.play('portal');

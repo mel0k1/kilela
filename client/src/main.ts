@@ -44,6 +44,7 @@ function startGame(app: Application, name: string, look: Look) {
   let photoMode = false;
 
   const music = new MusicPlayer();
+  music.setVolume(Number(localStorage.getItem('kilela.music') ?? 0.45));
 
   const game = new Game(currentLook, {
     onChat(id, who, text) {
@@ -94,6 +95,10 @@ function startGame(app: Application, name: string, look: Look) {
       sfx.setEnabled(on);
       hud.setSoundOn(on);
       sfx.play('click');
+    },
+    onMusicVolume(volume) {
+      music.setVolume(volume);
+      localStorage.setItem('kilela.music', String(volume));
     },
     onLogout() {
       music.stop();

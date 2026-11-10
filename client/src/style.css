@@ -176,6 +176,18 @@ button {
   margin-left: auto;
 }
 
+.music-label {
+  font-size: 13px;
+  user-select: none;
+}
+
+.music-slider {
+  width: 90px;
+  height: 4px;
+  accent-color: #b3742c;
+  cursor: pointer;
+}
+
 .chat-log {
   position: absolute;
   left: 12px;

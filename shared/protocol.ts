@@ -140,7 +140,7 @@ export interface MapDef {
   spawnY: number;
   portals: PortalDef[];
   music: string;
-  weather: 'clear' | 'fog' | 'snow';
+  weather: 'clear' | 'fog' | 'snow' | 'cave';
 }
 
 export const MAPS: MapDef[] = [
@@ -154,6 +154,7 @@ export const MAPS: MapDef[] = [
     portals: [
       { x: 12, y: 84, to: 'forest', tx: 126, ty: 70, label: 'Туманный лес' },
       { x: 148, y: 84, to: 'peaks', tx: 10, ty: 70, label: 'Снежные пики' },
+      { x: 80, y: 30, to: 'cave', tx: 55, ty: 32, label: 'Кристальные пещеры' },
     ],
     music: 'bossanova.mp3',
     weather: 'clear',
@@ -179,6 +180,17 @@ export const MAPS: MapDef[] = [
     portals: [{ x: 6, y: 70, to: 'meadow', tx: 142, ty: 84, label: 'Солнечный луг' }],
     music: 'reindeer-winter.mp3',
     weather: 'snow',
+  },
+  {
+    id: 'cave',
+    name: 'Кристальные пещеры',
+    w: 110,
+    h: 110,
+    spawnX: 55,
+    spawnY: 56,
+    portals: [{ x: 55, y: 30, to: 'meadow', tx: 80, ty: 32, label: 'Солнечный луг' }],
+    music: 'cave-crystals.mp3',
+    weather: 'cave',
   },
 ];
 
