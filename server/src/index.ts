@@ -1,14 +1,23 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import {
-  TICK_HZ, LOOK_PREFIX, MAX_NAME, MAX_CHAT, getMap, validEmote,
+  TICK_HZ, LOOK_PREFIX, MAX_NAME, MAX_CHAT, MAPS, getMap, validEmote,
   type ClientMsg,
 } from '../../shared/protocol';
+import { buildWorld, isBlockedTile } from '../../shared/world';
 import { randomName } from './names';
 import { getRoom, type Player } from './rooms';
 
 const PORT = Number(process.env.PORT || 8080);
 const LOOK_MAX = 160;
 const PORTAL_RADIUS = 2.5;
+const MAX_POS_STEP = 3;
+const POS_SAMPLE = 0.25;
+
+const worlds = new Map<string, Uint8Array>();
+
+for (const map of MAPS) {
+  worlds.set(map.id, buildWorld(map).blocked);
+}
 
 let nextId = 1;
 const players = new Map<number, Player>();
@@ -68,6 +77,74 @@ function clampToMap(p: Player) {
   p.y = Math.max(1, Math.min(map.h - 2, p.y));
 }
 
+function round10(v: number): number {
+  return Math.round(v * 10) / 10;
+}
+
+function sendFix(p: Player, x = p.x, y = p.y) {
+  if (p.ws) {
+    send(p.ws, { t: 'fix', x: round10(x), y: round10(y) });
+  }
+}
+
+function walkable(mapId: string, x: number, y: number): boolean {
+  const blocked = worlds.get(mapId);
+
+  if (!blocked) return true;
+
+  return !isBlockedTile(blocked, getMap(mapId), Math.round(x), Math.round(y));
+}
+
+function acceptPosition(p: Player, nx: number, ny: number): void {
+  const map = getMap(p.map);
+  const x = Math.max(1, Math.min(map.w - 2, nx));
+  const y = Math.max(1, Math.min(map.h - 2, ny));
+  const blocked = worlds.get(p.map);
+
+  if (!blocked) {
+    p.x = x;
+    p.y = y;
+    return;
+  }
+
+  const fromOk = !isBlockedTile(blocked, map, Math.round(p.x), Math.round(p.y));
+
+  if (!fromOk) {
+    p.x = x;
+    p.y = y;
+    return;
+  }
+
+  const dist = Math.hypot(x - p.x, y - p.y);
+
+  if (dist > MAX_POS_STEP) {
+    sendFix(p);
+    return;
+  }
+
+  const steps = Math.max(1, Math.ceil(dist / POS_SAMPLE));
+  let ax = p.x;
+  let ay = p.y;
+
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const px = p.x + (x - p.x) * t;
+    const py = p.y + (y - p.y) * t;
+
+    if (!walkable(p.map, px, py)) break;
+
+    ax = px;
+    ay = py;
+  }
+
+  p.x = ax;
+  p.y = ay;
+
+  if (Math.hypot(x - ax, y - ay) > 0.25) {
+    sendFix(p, ax, ay);
+  }
+}
+
 function findPortal(p: Player) {
   const map = getMap(p.map);
 
@@ -116,10 +193,17 @@ function stepBot(bot: Player, dt: number) {
   const speed = 2.2 * dt;
 
   if (Math.random() < 0.6) {
-    if (bot.dir === 0) bot.y += speed;
-    else if (bot.dir === 1) bot.y -= speed;
-    else if (bot.dir === 2) bot.x -= speed;
-    else bot.x += speed;
+    let vx = 0;
+    let vy = 0;
+
+    if (bot.dir === 0) vy = speed;
+    else if (bot.dir === 1) vy = -speed;
+    else if (bot.dir === 2) vx = -speed;
+    else vx = speed;
+
+    if (vx !== 0 && walkable(bot.map, bot.x + vx, bot.y)) bot.x += vx;
+
+    if (vy !== 0 && walkable(bot.map, bot.x, bot.y + vy)) bot.y += vy;
   }
 
   bot.x = Math.max(BOT_WANDER.x0, Math.min(BOT_WANDER.x1, bot.x));
@@ -225,9 +309,8 @@ wss.on('connection', ws => {
         const y = Number(msg.y);
 
         if (Number.isFinite(x) && Number.isFinite(y)) {
-          player.x = x;
-          player.y = y;
           player.dir = [0, 1, 2, 3].includes(msg.dir) ? msg.dir : player.dir;
+          acceptPosition(player, x, y);
           clampToMap(player);
         }
 

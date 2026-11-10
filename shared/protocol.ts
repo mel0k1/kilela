@@ -95,6 +95,12 @@ export interface LookFromMsg {
   look: string;
 }
 
+export interface FixMsg {
+  t: 'fix';
+  x: number;
+  y: number;
+}
+
 export interface SysMsg {
   t: 'sys';
   text: string;
@@ -115,7 +121,8 @@ export type ServerMsg =
   | SwitchMsg
   | LookFromMsg
   | SysMsg
-  | ErrMsg;
+  | ErrMsg
+  | FixMsg;
 
 export const DIR_S = 0;
 export const DIR_N = 1;

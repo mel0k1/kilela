@@ -29,15 +29,4 @@ export function makeGlowTexture(): HTMLCanvasElement {
   return canvas;
 }
 
-export function hashPosition(mapId: string, x: number, y: number): number {
-  let h = 2166136261;
-
-  for (let i = 0; i < mapId.length; i++) {
-    h ^= mapId.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-
-  h ^= x * 374761393 + y * 668265263;
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
-}
+export { hashPosition } from '../../../shared/world';

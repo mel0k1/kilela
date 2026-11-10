@@ -1,10 +1,14 @@
 import { Application, Container, Sprite, Texture, Text, Graphics } from 'pixi.js';
-import { makeSoftCircleTexture, makeGlowTexture, hashPosition } from './scenery';
+import { makeSoftCircleTexture, makeGlowTexture } from './scenery';
 import {
   TILE_W, TILE_H, createMapTiles, tileTexture, objectDefs, objectTexture, objectHeight,
-  decorForMap, decorTexture, isGroundDecor, isSolidDecor, markSolidDecor, buildWallPieces, wallTexture, wallSpriteSize,
+  decorTexture, isGroundDecor, buildWallPieces, wallTexture, wallSpriteSize,
   type MapTiles, type WallPiece,
 } from './tiles';
+import {
+  buildWorld, decorPlacements, treePlacements,
+  type TreePlacement,
+} from '../../../shared/world';
 import { getMap, type MapDef } from '../../../shared/protocol';
 import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
 import type { PonyActor } from '../pony/anim';
@@ -43,12 +47,6 @@ interface EntityView {
   dir: number;
 }
 
-interface TreeDef {
-  x: number;
-  y: number;
-  kind: number;
-}
-
 interface DecorView {
   kind: string;
   x: number;
@@ -76,12 +74,12 @@ export class WorldView {
   private bgRect = new Graphics();
   private waterFrame = 0;
   private treeTextures: Texture[] = [];
-  private trees: TreeDef[] = [];
+  private trees: TreePlacement[] = [];
   private treeSprites: Sprite[] = [];
   private treeShadowSprites: Sprite[] = [];
   private wallSprites: Sprite[] = [];
   private decorSprites: Sprite[] = [];
-  private blockedTiles = new Set<number>();
+  private blocked: Uint8Array = new Uint8Array(0);
   private lanternGlows: LanternGlow[] = [];
   private shadowTexture: Texture | undefined;
   private fireflies: Sprite[] = [];
@@ -158,11 +156,9 @@ export class WorldView {
   }
 
   isBlockedAt(tx: number, ty: number): boolean {
-    if (!this.tiles || tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return true;
+    if (tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return true;
 
-    const idx = tx + ty * this.map.w;
-
-    return this.tiles.walls[idx] === 1 || this.tiles.grid[idx] === 2 || this.blockedTiles.has(idx);
+    return this.blocked[tx + ty * this.map.w] === 1;
   }
 
   buildMap(mapId: string) {
@@ -203,8 +199,8 @@ export class WorldView {
     }
 
     this.lanternGlows = [];
-    this.blockedTiles.clear();
-    this.trees = this.generateTrees();
+    this.blocked = buildWorld(this.map).blocked;
+    this.trees = treePlacements(this.map, this.tiles.grid);
 
     for (const tree of this.trees) {
       const kind = kinds[tree.kind];
@@ -280,7 +276,7 @@ export class WorldView {
   private buildDecor() {
     if (!this.tiles) return;
 
-    for (const item of decorForMap(this.map, this.tiles)) {
+    for (const item of decorPlacements(this.map, this.tiles.grid, this.tiles.walls)) {
       const texture = decorTexture(item.kind);
       const sprite = new Sprite(texture);
       const base = item.y * TILE_H + TILE_H;
@@ -296,10 +292,6 @@ export class WorldView {
       this.mainLayer.addChild(sprite);
       this.decorSprites.push(sprite);
 
-      if (isSolidDecor(item.kind)) {
-        markSolidDecor(item.kind, item.x, item.y, this.map.w, this.blockedTiles);
-      }
-
       if (item.kind === 'crystal_lantern') {
         const glow = new Sprite(canvasTexture(makeGlowTexture()));
         glow.anchor.set(0.5);
@@ -310,38 +302,6 @@ export class WorldView {
         this.lanternGlows.push({ sprite: glow, x: item.x, y: item.y, phase: Math.random() * 6.28 });
       }
     }
-  }
-
-  private generateTrees(): TreeDef[] {
-    const trees: TreeDef[] = [];
-    const { w, h } = this.map;
-    const pathY = this.map.spawnY;
-    const density = this.map.weather === 'fog' ? 30 : this.map.weather === 'snow' ? 10 : 8;
-
-    for (let gy = 2; gy < h - 2; gy++) {
-      for (let gx = 2; gx < w - 2; gx++) {
-        const hash = hashPosition(this.map.id, gx, gy);
-
-        if (hash % 100 >= density) {
-          continue;
-        }
-
-        if (Math.abs(gy - pathY) <= 1) continue;
-
-        if (this.tiles && this.tiles.grid[gx + gy * w] !== 1) continue;
-
-        const nearPortal = this.map.portals.some(
-          p => Math.abs(p.x - gx) < 4 && Math.abs(p.y - gy) < 4,
-        );
-        const nearSpawn = Math.abs(gx - this.map.spawnX) < 5 && Math.abs(gy - this.map.spawnY) < 5;
-
-        if (nearPortal || nearSpawn) continue;
-
-        trees.push({ x: gx, y: gy, kind: hash % 3 });
-      }
-    }
-
-    return trees;
   }
 
   addEntity(id: number, name: string, look: PaletteLook, lookCode: string, actor: PonyActor, x: number, y: number) {

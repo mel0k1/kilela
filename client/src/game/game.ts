@@ -116,6 +116,13 @@ export class Game {
 
         break;
       }
+      case 'fix': {
+        this.playerX = msg.x;
+        this.playerY = msg.y;
+        this.walkTarget = undefined;
+        this.view.setEntityPos(this.myId, this.playerX, this.playerY, this.playerDir);
+        break;
+      }
       case 'chat': {
         const name = msg.id === this.myId ? this.myName : this.view.entities.get(msg.id)?.name || '?';
         this.view.showBubble(msg.id, msg.text);
