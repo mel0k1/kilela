@@ -6,8 +6,8 @@ import {
   type MapTiles, type WallPiece,
 } from './tiles';
 import {
-  buildWorld, decorPlacements, treePlacements,
-  type TreePlacement,
+  buildWorld, decorPlacements, treePlacements, findPath,
+  type PathPoint, type TreePlacement,
 } from '../../../shared/world';
 import { getMap, type MapDef } from '../../../shared/protocol';
 import { drawPonyToCanvas, PONY_WIDTH } from '../pony/draw';
@@ -159,6 +159,10 @@ export class WorldView {
     if (tx < 0 || ty < 0 || tx >= this.map.w || ty >= this.map.h) return true;
 
     return this.blocked[tx + ty * this.map.w] === 1;
+  }
+
+  computePath(sx: number, sy: number, tx: number, ty: number): PathPoint[] {
+    return findPath(this.blocked, this.map, sx, sy, tx, ty);
   }
 
   buildMap(mapId: string) {

@@ -444,3 +444,108 @@ export function isBlockedTile(blocked: Uint8Array, map: MapDef, tx: number, ty: 
 
   return blocked[tx + ty * map.w] === 1;
 }
+
+export interface PathPoint {
+  x: number;
+  y: number;
+}
+
+export function findPath(blocked: Uint8Array, map: MapDef, sx: number, sy: number, tx: number, ty: number): PathPoint[] {
+  const { w, h } = map;
+  const clampV = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+  const sxT = clampV(Math.round(sx), 0, w - 1);
+  const syT = clampV(Math.round(sy), 0, h - 1);
+  const start = sxT + syT * w;
+  let gx = clampV(Math.round(tx), 0, w - 1);
+  let gy = clampV(Math.round(ty), 0, h - 1);
+
+  if (blocked[start] === 1) return [];
+
+  if (blocked[gx + gy * w] === 1) {
+    let best = -1;
+    let bestDist = Infinity;
+
+    for (let r = 1; r <= 4 && best < 0; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const x = gx + dx;
+          const y = gy + dy;
+
+          if (x < 1 || y < 1 || x >= w - 1 || y >= h - 1) continue;
+
+          const i = x + y * w;
+
+          if (blocked[i] === 1) continue;
+
+          const d = dx * dx + dy * dy;
+
+          if (d < bestDist) {
+            bestDist = d;
+            best = i;
+          }
+        }
+      }
+    }
+
+    if (best < 0) return [];
+
+    gx = best % w;
+    gy = (best / w) | 0;
+  }
+
+  const goal = gx + gy * w;
+
+  if (start === goal) return [];
+
+  const prev = new Int32Array(w * h).fill(-1);
+  const seen = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let head = 0;
+  let tail = 0;
+  queue[tail++] = start;
+  seen[start] = 1;
+  let bestNode = start;
+  let bestH = Infinity;
+
+  while (head < tail) {
+    const cur = queue[head++];
+
+    if (cur === goal) {
+      bestNode = goal;
+      break;
+    }
+
+    const cx = cur % w;
+    const cy = (cur / w) | 0;
+    const dist = (cx - gx) * (cx - gx) + (cy - gy) * (cy - gy);
+
+    if (dist < bestH) {
+      bestH = dist;
+      bestNode = cur;
+    }
+
+    const push = (next: number) => {
+      if (!seen[next] && blocked[next] !== 1) {
+        seen[next] = 1;
+        prev[next] = cur;
+        queue[tail++] = next;
+      }
+    };
+
+    if (cx > 0) push(cur - 1);
+    if (cx < w - 1) push(cur + 1);
+    if (cy > 0) push(cur - w);
+    if (cy < h - 1) push(cur + w);
+  }
+
+  const path: PathPoint[] = [];
+  let node = bestNode;
+
+  while (node !== start && node >= 0) {
+    path.push({ x: node % w, y: (node / w) | 0 });
+    node = prev[node];
+  }
+
+  path.reverse();
+  return path;
+}

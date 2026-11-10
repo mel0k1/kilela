@@ -3,6 +3,7 @@ import { WorldView, directionFromVector } from '../world/view';
 import { TILE_W, TILE_H } from '../world/tiles';
 import { Net } from '../net';
 import { getMap, type PortalDef } from '../../../shared/protocol';
+import type { PathPoint } from '../../../shared/world';
 import { PonyActor, type Target } from '../pony/anim';
 import { buildPaletteLook, decodeLook, encodeLook, type Look, type PaletteLook } from '../pony/look';
 import { boop } from '../pony/pt/animations';
@@ -33,7 +34,7 @@ export class Game {
   moving = false;
   switching = false;
   private switchTimer = 0;
-  private walkTarget: { x: number; y: number } | undefined;
+  private walkTarget: PathPoint[] | undefined;
   private keys = new Set<string>();
   private posTimer = 0;
   private lastSent = { x: 0, y: 0, dir: 0 };
@@ -246,7 +247,6 @@ export class Game {
       this.keys.add(e.key.toLowerCase());
       this.walkTarget = undefined;
     });
-
     window.addEventListener('keyup', e => {
       this.keys.delete(e.key.toLowerCase());
     });
@@ -259,7 +259,8 @@ export class Game {
       const screenY = e.clientY - rect.top;
       const worldX = (screenX - this.view.tileLayer.position.x) / TILE_W;
       const worldY = (screenY - this.view.tileLayer.position.y) / TILE_H;
-      this.walkTarget = { x: worldX, y: worldY };
+      const path = this.view.computePath(this.playerX, this.playerY, worldX, worldY);
+      this.walkTarget = path.length > 0 ? path : undefined;
     });
   }
 
@@ -296,12 +297,13 @@ export class Game {
       if (this.keys.has('d') || this.keys.has('arrowright') || this.keys.has('в')) dx += 1;
     }
 
-    if (dx === 0 && dy === 0 && this.walkTarget) {
-      const tx = this.walkTarget.x - this.playerX;
-      const ty = this.walkTarget.y - this.playerY;
+    if (dx === 0 && dy === 0 && this.walkTarget && this.walkTarget.length > 0) {
+      const wp = this.walkTarget[0];
+      const tx = wp.x - this.playerX;
+      const ty = wp.y - this.playerY;
 
-      if (Math.hypot(tx, ty) < 0.15) {
-        this.walkTarget = undefined;
+      if (Math.hypot(tx, ty) < 0.2) {
+        this.walkTarget.shift();
       } else {
         dx = tx;
         dy = ty;
