@@ -1,6 +1,7 @@
 import { el, clear } from './dom';
 import { sfx } from '../audio/sfx';
 import { TOYS, type ChatKind } from '../../../shared/protocol';
+import { type ChatPrefs, type LogKind } from '../game/chatPrefs';
 
 export interface HudCallbacks {
   onEmote(action: string): void;
@@ -20,13 +21,15 @@ export class Hud {
   private chatLog: HTMLElement;
   private chatInput: HTMLInputElement;
   private cb: HudCallbacks;
+  private prefs: ChatPrefs;
   private emoteButtons = new Map<string, HTMLButtonElement>();
   private soundButton: HTMLButtonElement;
   private musicSlider: HTMLInputElement;
   soundOn = true;
 
-  constructor(cb: HudCallbacks) {
+  constructor(cb: HudCallbacks, prefs: ChatPrefs) {
     this.cb = cb;
+    this.prefs = prefs;
     this.root = el('div', 'hud', document.body);
 
     const topbar = el('div', 'topbar', this.root);
@@ -70,14 +73,34 @@ export class Hud {
     exitButton.textContent = 'Выход';
     exitButton.addEventListener('click', () => this.cb.onLogout());
 
-    this.chatLog = el('div', 'chat-log', this.root);
+    const chatWrap = el('div', 'chat-wrap', this.root);
+    const chatFilters = el('div', 'chat-filters', chatWrap);
+    const chips: [LogKind, string, string][] = [
+      ['say', 'Речь', 'Обычные сообщения в логе'],
+      ['think', 'Мысли', 'Мысли в логе'],
+      ['whisper', 'Шёпот', 'Личные сообщения в логе'],
+      ['system', 'Служебные', 'Системные сообщения'],
+    ];
+
+    for (const [kind, label, hint] of chips) {
+      const chip = el('button', 'chat-chip' + (this.prefs.kinds[kind] ? '' : ' off'), chatFilters) as HTMLButtonElement;
+      chip.textContent = label;
+      chip.title = hint;
+      chip.addEventListener('click', () => {
+        const on = this.prefs.toggleKind(kind);
+        chip.classList.toggle('off', !on);
+        sfx.play('click');
+      });
+    }
+
+    this.chatLog = el('div', 'chat-log', chatWrap);
     this.chatLog.addEventListener('pointerdown', e => e.stopPropagation());
 
     const chatBar = el('div', 'chat-bar', this.root);
     this.chatInput = el('input', 'chat-input', chatBar) as HTMLInputElement;
     this.chatInput.maxLength = 200;
     this.chatInput.placeholder = 'Сказать что-нибудь…';
-    this.chatInput.title = '/w Имя текст — шепнуть, /think текст — мысли, /shrug — пожать плечами, /roll — кубик';
+    this.chatInput.title = '/w Имя текст — шепнуть, /think текст — мысли, /shrug — пожать плечами, /ignore Имя — скрыть пони, /filter слово — скрыть слово';
     this.chatInput.addEventListener('keydown', e => {
       e.stopPropagation();
 

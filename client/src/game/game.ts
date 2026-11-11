@@ -5,6 +5,7 @@ import { Net } from '../net';
 import { getMap, type ChatKind, type PortalDef } from '../../../shared/protocol';
 import type { PathPoint } from '../../../shared/world';
 import { PonyActor, type Target } from '../pony/anim';
+import { ChatPrefs } from './chatPrefs';
 import { buildPaletteLook, decodeLook, encodeLook, type Look, type PaletteLook } from '../pony/look';
 import { boop } from '../pony/pt/animations';
 import { parseChatExpression } from '../pony/expressions';
@@ -42,13 +43,15 @@ export class Game {
   private zzzTimer = 0;
   private wasInWater = false;
   private cb: GameCallbacks;
+  chatPrefs: ChatPrefs;
   private started = false;
   private pendingPortal: { to: string; x: number; y: number } | undefined;
 
-  constructor(look: Look, cb: GameCallbacks) {
+  constructor(look: Look, cb: GameCallbacks, chatPrefs: ChatPrefs) {
     this.myLook = buildPaletteLook(look);
     this.myLookCode = encodeLook(look);
     this.cb = cb;
+    this.chatPrefs = chatPrefs;
   }
 
   async start(app: Application, name: string, savedLook: Look) {
@@ -136,14 +139,26 @@ export class Game {
       case 'chat': {
         const kind: ChatKind = msg.kind ?? 'say';
         const name = msg.id === this.myId ? this.myName : msg.name || this.view.entities.get(msg.id)?.name || '?';
+        const own = msg.id === this.myId;
+
+        if (!own && (this.chatPrefs.isIgnored(name) || this.chatPrefs.matchesWordFilter(msg.text))) {
+          break;
+        }
 
         if (kind === 'whisper') {
-          this.cb.onChat(msg.id, name, msg.text, kind, msg.to);
+          if (this.chatPrefs.kinds.whisper) {
+            this.cb.onChat(msg.id, name, msg.text, kind, msg.to);
+          }
+
           break;
         }
 
         this.view.showBubble(msg.id, msg.text, kind);
-        this.cb.onChat(msg.id, name, msg.text, kind);
+
+        if (this.chatPrefs.kinds[kind]) {
+          this.cb.onChat(msg.id, name, msg.text, kind);
+        }
+
         const view = this.view.entities.get(msg.id);
 
         if (view && kind === 'say' && view.actor.target !== 'fly') {

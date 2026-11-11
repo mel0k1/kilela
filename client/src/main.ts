@@ -2,6 +2,7 @@ import { Application } from 'pixi.js';
 import { loadPonySheets } from './pony/atlas';
 import { encodeLook, type Look } from './pony/look';
 import { Game } from './game/game';
+import { ChatPrefs } from './game/chatPrefs';
 import { showLogin } from './ui/login';
 import { Editor } from './ui/editor';
 import { Hud } from './ui/hud';
@@ -45,6 +46,7 @@ async function boot() {
 function startGame(app: Application, name: string, look: Look) {
   let currentLook = look;
   let photoMode = false;
+  const chatPrefs = new ChatPrefs();
 
   const music = new MusicPlayer();
   music.setVolume(Number(localStorage.getItem('kilela.music') ?? 0.45));
@@ -54,7 +56,9 @@ function startGame(app: Application, name: string, look: Look) {
       hud.addChat(who, text, id === game.myId, kind, to);
     },
     onSys(text) {
-      hud.addSystem(text);
+      if (chatPrefs.kinds.system) {
+        hud.addSystem(text);
+      }
     },
     onErr(text) {
       hud.addSystem(text);
@@ -67,7 +71,7 @@ function startGame(app: Application, name: string, look: Look) {
       app.renderer.background.color = MAP_SKY[id] ?? MAP_SKY.meadow;
       music.setPlaylist(id);
     },
-  });
+  }, chatPrefs);
 
   const hud = new Hud({
     onEmote(action) {
@@ -75,6 +79,73 @@ function startGame(app: Application, name: string, look: Look) {
       hud.markEmoteActive(action === 'stand' || action === 'wake' || action === 'land' ? '' : action);
     },
     onChatSend(text) {
+      if (text.startsWith('/ignore ') || text.startsWith('/игнор ')) {
+        const arg = text.slice(text.indexOf(' ') + 1).trim();
+        const res = chatPrefs.toggleIgnore(arg);
+
+        if (res === 'added') {
+          hud.addSystem(`Пони «${arg}» в игноре: сообщения и пузыри скрыты.`);
+        } else if (res === 'removed') {
+          hud.addSystem(`Пони «${arg}» снова слышна.`);
+        } else {
+          hud.addSystem('Игнорировать: /ignore Имя');
+        }
+
+        return;
+      }
+
+      if (text.startsWith('/unignore ') || text.startsWith('/неигнор ')) {
+        const arg = text.slice(text.indexOf(' ') + 1).trim();
+        const res = chatPrefs.toggleIgnore(arg);
+
+        if (res === 'removed') {
+          hud.addSystem(`Пони «${arg}» снова слышна.`);
+        } else {
+          hud.addSystem(`Пони «${arg}» не была в игноре.`);
+        }
+
+        return;
+      }
+
+      if (text === '/ignored' || text === '/игнорю') {
+        const list = chatPrefs.ignoredNames();
+        hud.addSystem(list.length ? `В игноре: ${list.join(', ')}.` : 'Список игнора пуст.');
+        return;
+      }
+
+      if (text.startsWith('/filter ') || text.startsWith('/фильтр ')) {
+        const arg = text.slice(text.indexOf(' ') + 1).trim();
+        const res = chatPrefs.toggleWord(arg);
+
+        if (res === 'added') {
+          hud.addSystem(`Слова «${arg}» больше не видны в чате.`);
+        } else if (res === 'removed') {
+          hud.addSystem(`Слово «${arg}» снова видно.`);
+        } else {
+          hud.addSystem('Скрыть слово: /filter слово');
+        }
+
+        return;
+      }
+
+      if (text.startsWith('/unfilter ')) {
+        const arg = text.slice(text.indexOf(' ') + 1).trim();
+        const res = chatPrefs.toggleWord(arg);
+
+        if (res === 'removed') {
+          hud.addSystem(`Слово «${arg}» снова видно.`);
+        } else {
+          hud.addSystem(`Слова «${arg}» не было в фильтре.`);
+        }
+
+        return;
+      }
+
+      if (text === '/filters' || text === '/фильтры') {
+        hud.addSystem(chatPrefs.words.length ? `Скрытые слова: ${chatPrefs.words.join(', ')}.` : 'Список скрытых слов пуст.');
+        return;
+      }
+
       if (text === '/turn' || text === '/поворот') {
         game.sendEmote('turn');
         return;
@@ -134,7 +205,7 @@ function startGame(app: Application, name: string, look: Look) {
       music.stop();
       location.reload();
     },
-  });
+  }, chatPrefs);
 
   (window as unknown as { game: Game }).game = game;
 
