@@ -6,9 +6,19 @@ import {
   maneCount, backManeCount, tailCount, wingsCount, hornCount, earsCount, facialHairCount,
   headAccessoryCount, chestAccessoryCount, backAccessoryCount, legAccessoryCount,
   sleevesCount, waistCount, neckCount, muzzleCount,
+  faceMarkCount, bodyMarkCount, legMarkCount,
+  DEFAULT_LOOK,
   type Look,
 } from '../pony/look';
 import { sfx } from '../audio/sfx';
+import { Eye } from '../pony/pt/interfaces';
+
+const EYE_SHAPES: number[] = [
+  Eye.Neutral, Eye.Neutral2, Eye.Neutral3, Eye.Neutral4, Eye.Neutral5, Eye.Closed,
+  Eye.ClosedHappy, Eye.ClosedHappy2, Eye.ClosedHappy3,
+  Eye.Sad, Eye.Sad2, Eye.Angry, Eye.Angry2, Eye.Frown, Eye.Frown2,
+  Eye.Peaceful, Eye.Peaceful2, Eye.X, Eye.Lines,
+];
 
 export interface EditorCallbacks {
   onSave(look: Look): void;
@@ -270,7 +280,7 @@ export class Editor {
       const hint = el('div', 'share-hint', share);
       hint.textContent = 'Вставь код образа (начинается с KL…). Текущий образ сохранится в истории — можно отменить.';
       const textarea = el('textarea', 'share-code', share) as HTMLTextAreaElement;
-      textarea.placeholder = 'KL4.…';
+      textarea.placeholder = 'KL5.…';
       const status = el('div', 'share-status', share);
       const row = el('div', 'share-row', share);
       const loadButton = el('button', 'btn small primary', row);
@@ -279,7 +289,7 @@ export class Editor {
         const code = textarea.value.trim();
 
         if (!/^KL[2-9]\./.test(code)) {
-          status.textContent = 'Не похоже на код образа. Код начинается с KL4.';
+          status.textContent = 'Не похоже на код образа. Код начинается с KL5.';
           status.classList.add('error');
           return;
         }
@@ -396,6 +406,38 @@ export class Editor {
 
         this.scheduleRefresh();
       });
+
+      const bodyMarkLabel = el('div', 'editor-row-label', this.body);
+      bodyMarkLabel.textContent = 'Отметины на теле';
+      this.optionGrid(this.body, bodyMarkCount() + 1, look.bodyMark, 'Нет',
+        i => ({ ...look, bodyMark: i }),
+        i => {
+          look.bodyMark = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.bodyMark > 0) {
+        this.colorRow(this.body, 'Цвет отметин', WARM_SWATCHES, look.bodyMarkColor, c => {
+          look.bodyMarkColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const legMarkLabel = el('div', 'editor-row-label', this.body);
+      legMarkLabel.textContent = 'Отметины на ногах';
+      this.optionGrid(this.body, legMarkCount() + 1, look.legMark, 'Нет',
+        i => ({ ...look, legMark: i }),
+        i => {
+          look.legMark = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.legMark > 0) {
+        this.colorRow(this.body, 'Цвет отметин', WARM_SWATCHES, look.legMarkColor, c => {
+          look.legMarkColor = c;
+          this.scheduleRefresh();
+        });
+      }
 
       const hoovesRow = el('div', 'editor-row', this.body);
       const hoovesLabel = el('div', 'editor-row-label', hoovesRow);
@@ -565,6 +607,34 @@ export class Editor {
         });
       }
 
+      const eyeLabel = el('div', 'editor-row-label', this.body);
+      eyeLabel.textContent = 'Глаза (форма)';
+      this.optionGrid(this.body, EYE_SHAPES.length + 1, EYE_SHAPES.indexOf(look.eyeOpenness) + 1, 'Как пресет',
+        i => ({ ...look, eyeOpenness: i > 0 ? EYE_SHAPES[i - 1] : 0 }),
+        i => {
+          look.eyeOpenness = i > 0 ? EYE_SHAPES[i - 1] : 0;
+          this.scheduleRefresh();
+        });
+
+      const blushRow = el('div', 'editor-row', this.body);
+      const blushLabel = el('div', 'editor-row-label', blushRow);
+      blushLabel.textContent = 'Румянец';
+      const blushToggle = el('button', 'btn small' + (look.blush ? ' active' : ''), blushRow);
+      blushToggle.textContent = look.blush ? 'Есть' : 'Нет';
+      blushToggle.addEventListener('click', () => {
+        look.blush = !look.blush;
+        blushToggle.textContent = look.blush ? 'Есть' : 'Нет';
+        blushToggle.classList.toggle('active', look.blush);
+        this.scheduleRefresh();
+      });
+
+      if (look.blush) {
+        colorSwatches(blushRow, WARM_SWATCHES.slice(0, 12), look.blushColor, c => {
+          look.blushColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
       const exprLabel = el('div', 'editor-row-label', this.body);
       exprLabel.textContent = 'Выражение морды';
       const exprGrid = el('div', 'expression-grid', this.body);
@@ -604,6 +674,47 @@ export class Editor {
           look.muzzle = i;
           this.scheduleRefresh();
         });
+
+      const faceMarkLabel = el('div', 'editor-row-label', this.body);
+      faceMarkLabel.textContent = 'Метки на морде';
+      this.optionGrid(this.body, faceMarkCount() + 1, look.faceMark, 'Нет',
+        i => ({ ...look, faceMark: i }),
+        i => {
+          look.faceMark = i;
+          this.scheduleRefresh();
+        });
+
+      if (look.faceMark > 0) {
+        this.colorRow(this.body, 'Цвет метки', MANE_SWATCHES, look.faceMarkColors[0], c => {
+          look.faceMarkColors[0] = c;
+          this.scheduleRefresh();
+        });
+
+        const markTwoRow = el('div', 'editor-row', this.body);
+        const markTwoLabel = el('div', 'editor-row-label', markTwoRow);
+        markTwoLabel.textContent = 'Второй цвет';
+        const markTwoToggle = el('button', 'btn small' + (look.faceMarkColors[1] ? ' active' : ''), markTwoRow);
+        markTwoToggle.textContent = look.faceMarkColors[1] ? 'Есть' : 'Нет';
+        markTwoToggle.addEventListener('click', () => {
+          if (look.faceMarkColors[1]) {
+            look.faceMarkColors = [look.faceMarkColors[0]];
+            markTwoToggle.textContent = 'Нет';
+          } else {
+            look.faceMarkColors = [look.faceMarkColors[0], look.faceMarkColors[0]];
+            markTwoToggle.textContent = 'Есть';
+          }
+
+          markTwoToggle.classList.toggle('active', !!look.faceMarkColors[1]);
+          this.scheduleRefresh();
+        });
+
+        if (look.faceMarkColors[1]) {
+          colorSwatches(markTwoRow, MANE_SWATCHES, look.faceMarkColors[1], c => {
+            look.faceMarkColors[1] = c;
+            this.scheduleRefresh();
+          });
+        }
+      }
     } else if (this.tab === 'acc') {
       const hatLabel = el('div', 'editor-row-label', this.body);
       hatLabel.textContent = 'Головной убор';
@@ -749,18 +860,5 @@ export class Editor {
 }
 
 function DEFAULT_LOOK_PROXY(): Look {
-  return {
-    coat: 0xffe0b8ff, eyeWhite: 0xffffffff, eyeColor: 0x2e58f4ff, eyelashes: 1, expression: 1,
-    mane: 2, maneColors: [0x8a5a3bff], backMane: 1, backManeColors: [0x8a5a3bff],
-    tail: 1, tailColors: [0x8a5a3bff], muzzle: 0, wings: 0, wingsColor: 0xffe0b8ff,
-    horn: 0, hooves: 0, cm: 1, cmColor: 0xf15f9dff, cmFlip: false,
-    ears: 0, facialHair: 0, facialHairColors: [0x8a5a3bff, 0x8a5a3bff],
-    headAccessory: 0, headAccessoryColor: 0xd9534fff,
-    chestAccessory: 0, chestAccessoryColor: 0xd9534fff,
-    backAccessory: 0, backAccessoryColor: 0xd9534fff,
-    legAccessory: 0, legAccessoryColor: 0xd9534fff,
-    sleeves: 0, sleevesColor: 0xd9534fff,
-    waist: 0, waistColor: 0xd9534fff,
-    neck: 0, neckColor: 0xd9534fff,
-  };
+  return { ...DEFAULT_LOOK };
 }

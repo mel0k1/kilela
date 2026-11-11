@@ -42,6 +42,15 @@ export interface Look {
   waistColor: number;
   neck: number;
   neckColor: number;
+  eyeOpenness: number;
+  blush: boolean;
+  blushColor: number;
+  faceMark: number;
+  faceMarkColors: number[];
+  bodyMark: number;
+  bodyMarkColor: number;
+  legMark: number;
+  legMarkColor: number;
 }
 
 export interface ExpressionPreset {
@@ -215,12 +224,32 @@ export const DEFAULT_LOOK: Look = {
   waistColor: 0xd9534fff,
   neck: 0,
   neckColor: 0xd9534fff,
+  eyeOpenness: 0,
+  blush: false,
+  blushColor: 0xffb6c1ff,
+  faceMark: 0,
+  faceMarkColors: [0xa0522dff],
+  bodyMark: 0,
+  bodyMarkColor: 0xf5f5f5ff,
+  legMark: 0,
+  legMarkColor: 0xf5f5f5ff,
 };
 
 const anySets = sprites as unknown as Record<string, ColorExtraSets>;
 
 function colorsCountOf(pattern: ColorExtra | undefined): number {
   return pattern && pattern.colors !== undefined ? (pattern.colors - 1) >> 1 : 0;
+}
+
+function markPatternOf(set: unknown, mark: number): ColorExtra | undefined {
+  const frames = set as unknown[] | undefined;
+  const list = frames && ((frames[0] || frames[1]) as unknown[] | undefined);
+  const patterns = list && (list[0] as unknown[] | undefined);
+  return patterns && mark > 0 ? (patterns[mark] as ColorExtra | undefined) : undefined;
+}
+
+export function faceMarkPattern(mark: number): ColorExtra | undefined {
+  return markPatternOf(anySets.head0, mark);
 }
 
 function paletteFor(pattern: ColorExtra | undefined, fills: number[], coat: number): Uint32Array {
@@ -324,6 +353,9 @@ export interface PaletteLook {
   cmPalette: Uint32Array | undefined;
   cmFlip: boolean;
   defaultPalette: Uint32Array;
+  faceMark: PaletteSpriteSet | undefined;
+  bodyMark: PaletteSpriteSet | undefined;
+  legMark: PaletteSpriteSet | undefined;
   look: Look;
 }
 
@@ -334,6 +366,9 @@ export function buildPaletteLook(look: Look): PaletteLook {
   const backManeSets = [anySets.backBehindManes, anySets.backFrontManes];
   const cmPalette = look.cm > 0 && look.cm < CUTIE_MARKS.length ? CUTIE_MARKS[look.cm].colors : undefined;
   const accColor = [look.headAccessoryColor || 0xd9534fff];
+  const faceMarkSet = markPaletteOf(faceMarkPattern(look.faceMark), look.faceMarkColors, look.coat, look.faceMark);
+  const bodyMarkSet = markPaletteOf(markPatternOf(anySets.body as ColorExtraSets, look.bodyMark), [look.bodyMarkColor || look.coat], look.coat, look.bodyMark);
+  const legMarkSet = markPaletteOf(markPatternOf(anySets.frontLegs as ColorExtraSets, look.legMark), [look.legMarkColor || look.coat], look.coat, look.legMark);
 
   return {
     body: framedSet([anySets.body as ColorExtraSets], 1, 0, coat, look.coat),
@@ -380,8 +415,17 @@ export function buildPaletteLook(look: Look): PaletteLook {
     cmPalette,
     cmFlip: look.cmFlip,
     defaultPalette: sprites.defaultPalette,
+    faceMark: faceMarkSet,
+    bodyMark: bodyMarkSet,
+    legMark: legMarkSet,
     look,
   };
+}
+
+function markPaletteOf(pattern: ColorExtra | undefined, fills: number[], coat: number, mark: number): PaletteSpriteSet | undefined {
+  if (mark <= 0) return undefined;
+
+  return { type: 0, pattern: mark, palette: paletteFor(pattern, fills.length > 0 ? fills : [coat], coat) };
 }
 
 function typeCount(set: ColorExtraSets): number {
@@ -453,6 +497,21 @@ export function muzzleCount(): number {
   return (sprites.noses as unknown as unknown[][]).length;
 }
 
+export function faceMarkCount(): number {
+  const patterns = ((anySets.head0 as unknown as unknown[][])[1] as unknown[] | undefined)?.[0] as unknown[] | undefined;
+  return patterns ? patterns.length - 1 : 0;
+}
+
+export function bodyMarkCount(): number {
+  const patterns = ((anySets.body as unknown as unknown[][])[1] as unknown[] | undefined)?.[0] as unknown[] | undefined;
+  return patterns ? patterns.length - 1 : 0;
+}
+
+export function legMarkCount(): number {
+  const patterns = ((anySets.frontLegs as unknown as unknown[][])[1] as unknown[] | undefined)?.[0] as unknown[] | undefined;
+  return patterns ? patterns.length - 1 : 0;
+}
+
 export function eyelashCount(): number {
   return 3;
 }
@@ -510,6 +569,15 @@ export function randomLook(): Look {
     waistColor: pick(maneColors),
     neck: Math.random() < 0.12 ? 1 + Math.floor(Math.random() * neckCount()) : 0,
     neckColor: pick(maneColors),
+    eyeOpenness: 0,
+    blush: Math.random() < 0.1,
+    blushColor: 0xffb6c1ff,
+    faceMark: Math.random() < 0.25 ? 1 + Math.floor(Math.random() * faceMarkCount()) : 0,
+    faceMarkColors: pick2(maneColors),
+    bodyMark: Math.random() < 0.15 ? 1 + Math.floor(Math.random() * bodyMarkCount()) : 0,
+    bodyMarkColor: pick(coats),
+    legMark: Math.random() < 0.15 ? 1 + Math.floor(Math.random() * legMarkCount()) : 0,
+    legMarkColor: pick(coats),
   };
 
   look.wingsColor = look.coat;
@@ -561,6 +629,23 @@ export function encodeLook(look: Look): string {
     w(((look.waistColor || 0) >>> 8) & 0xffffff, 24);
     w(look.neck || 0, 4);
     w(((look.neckColor || 0) >>> 8) & 0xffffff, 24);
+    w(look.eyeOpenness || 0, 5);
+    w(look.blush ? 1 : 0, 1);
+
+    if (look.blush) {
+      w(((look.blushColor || 0xffb6c1ff) >>> 8) & 0xffffff, 24);
+    }
+
+    w(look.faceMark || 0, 4);
+    w(look.faceMarkColors[0] || 0, 32);
+    w(look.faceMarkColors[1] ? 1 : 0, 1);
+
+    if (look.faceMarkColors[1]) w(look.faceMarkColors[1], 32);
+
+    w(look.bodyMark || 0, 2);
+    w(((look.bodyMarkColor || 0) >>> 8) & 0xffffff, 24);
+    w(look.legMark || 0, 2);
+    w(((look.legMarkColor || 0) >>> 8) & 0xffffff, 24);
   });
 
   let binary = '';
@@ -569,15 +654,15 @@ export function encodeLook(look: Look): string {
     binary += String.fromCharCode(b);
   }
 
-  return 'KL4.' + btoa(binary);
+  return 'KL5.' + btoa(binary);
 }
 
 export function decodeLook(code: string): Look {
-  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.')) {
+  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.') && !code.startsWith('KL5.')) {
     return { ...DEFAULT_LOOK };
   }
 
-  const version = code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
+  const version = code.startsWith('KL5.') ? 5 : code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
 
   try {
     const binary = atob(code.slice(4));
@@ -631,6 +716,15 @@ export function decodeLook(code: string): Look {
       waistColor: 0xd9534fff,
       neck: 0,
       neckColor: 0xd9534fff,
+      eyeOpenness: 0,
+      blush: false,
+      blushColor: 0xffb6c1ff,
+      faceMark: 0,
+      faceMarkColors: [0xa0522dff],
+      bodyMark: 0,
+      bodyMarkColor: 0xf5f5f5ff,
+      legMark: 0,
+      legMarkColor: 0xf5f5f5ff,
     };
 
     if (read(1)) look.maneColors.push(read(32));
@@ -677,6 +771,25 @@ export function decodeLook(code: string): Look {
       look.waistColor = ((read(24) << 8) | 0xff) >>> 0;
       look.neck = read(4);
       look.neckColor = ((read(24) << 8) | 0xff) >>> 0;
+    }
+
+    if (version >= 5) {
+      look.eyeOpenness = read(5);
+      look.blush = read(1) === 1;
+
+      if (look.blush) {
+        look.blushColor = ((read(24) << 8) | 0xff) >>> 0;
+      }
+
+      look.faceMark = read(4);
+      look.faceMarkColors = [read(32)];
+
+      if (read(1)) look.faceMarkColors.push(read(32));
+
+      look.bodyMark = read(2);
+      look.bodyMarkColor = ((read(24) << 8) | 0xff) >>> 0;
+      look.legMark = read(2);
+      look.legMarkColor = ((read(24) << 8) | 0xff) >>> 0;
     }
 
     return look;

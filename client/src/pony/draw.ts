@@ -29,7 +29,7 @@ const headFlipOffsetY = 42;
 const headOffsetsX = [0, 1, 1, 1, 1, 1, 0];
 const headOffsetsY = [0, 0, 1, 1, 0, 0, 0];
 
-const blushTint = 0xff89aeb4;
+const blushTint = 0xffb6c1ff;
 
 type Sets = any[];
 
@@ -185,7 +185,7 @@ const backLegDefs2: LegDefs = {
 function drawLegPattern(
   batch: PonyBatch, x: number, y: number, frame: number, defs: LegDefs,
   legSet: PartSet | undefined, hoofSet: PartSet | undefined, sockSet: PartSet | undefined,
-  sleeveSet: PartSet | undefined, tint: number,
+  sleeveSet: PartSet | undefined, tint: number, markSet: PartSet | undefined,
 ) {
   const hoofInFront = hoofSet !== undefined && !!defs.hoovesInFront[hoofSet.type];
   const legPatterns = at(defs.legs, frame);
@@ -193,6 +193,14 @@ function drawLegPattern(
 
   if (legPattern && legPattern[0] && legPattern[0]!.color) {
     batch.drawSprite(legPattern[0]!.color, tint, legSet!.palette, x, y);
+  }
+
+  if (markSet && legPattern) {
+    const markSprite = at(legPattern as NonNullable<ColorExtraSet>, markSet.pattern);
+
+    if (markSprite && markSprite.color) {
+      batch.drawSprite(markSprite.color, tint, markSet.palette, x, y);
+    }
   }
 
   if (!hoofInFront && hoofSet) {
@@ -280,6 +288,12 @@ function drawEye(
 }
 
 function expressionBaseEyes(look: PaletteLook): [Eye, Eye] {
+  const openness = clamp(look.look.eyeOpenness || 0, 0, 25);
+
+  if (openness > 0) {
+    return [openness as Eye, openness as Eye];
+  }
+
   const preset = EXPRESSION_PRESETS[look.look.expression];
   const expr = preset ? preset.expression : undefined;
   return [expr ? expr.left : Eye.Neutral, expr ? expr.right : Eye.Neutral];
@@ -374,12 +388,12 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   drawLegPattern(
     batch, behindX + backLegOffset.x + frame.backFarLegX, behindY + backLegOffset.y + frame.backFarLegY,
-    frame.backFarLeg, backLegDefs, look.backLegs, look.backHooves, sock, look.sleeves, FAR_COLOR,
+    frame.backFarLeg, backLegDefs, look.backLegs, look.backHooves, sock, look.sleeves, FAR_COLOR, look.legMark,
   );
 
   drawLegPattern(
     batch, behindX + frontLegOffset.x + frame.frontFarLegX, behindY + frontLegOffset.y + frame.frontFarLegY,
-    frame.frontFarLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, look.sleeves, FAR_COLOR,
+    frame.frontFarLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, look.sleeves, FAR_COLOR, look.legMark,
   );
 
   const tailPattern = look.tail && att(at(tailSets, frame.tail), look.tail.type);
@@ -394,6 +408,7 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   }
 
   drawSet(batch, at(sprites.body as Sets, body), look.body, x, y, WHITE);
+  drawSet(batch, at(sprites.body as Sets, body), look.bodyMark, x, y, WHITE);
 
   if (look.waist) {
     drawSet(batch, at(waistSets, body) as Sets, look.waist, x, y, WHITE);
@@ -404,7 +419,7 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   const backHoofInFront = drawLegPattern(
     batch, x + backLegOffset.x + frame.backLegX, y + backLegOffset.y + frame.backLegY,
-    frame.backLeg, backLegDefs, look.backLegs, look.backHooves, sock, look.sleeves, WHITE,
+    frame.backLeg, backLegDefs, look.backLegs, look.backHooves, sock, look.sleeves, WHITE, look.legMark,
   );
 
   if (look.cmPalette) {
@@ -426,7 +441,7 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   const frontHoofInFront = drawLegPattern(
     batch, x + frontLegOffset.x + frame.frontLegX, y + frontLegOffset.y + frame.frontLegY,
-    frame.frontLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, look.sleeves, WHITE,
+    frame.frontLeg, frontLegDefs, look.frontLegs, look.frontHooves, sock, look.sleeves, WHITE, look.legMark,
   );
 
   if (frontHoofInFront && look.frontHooves) {
@@ -439,7 +454,7 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   drawLegPattern(
     batch, x + backLegOffset.x + frame.backLegX, y + backLegOffset.y + frame.backLegY,
-    frame.backLeg, backLegDefs2, look.backLegs, look.backHooves, sock, look.sleeves, WHITE,
+    frame.backLeg, backLegDefs2, look.backLegs, look.backHooves, sock, look.sleeves, WHITE, look.legMark,
   );
 
   if (look.neck) {
@@ -466,10 +481,14 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   }
 
   const headSprite = headFlip ? sprites.head0 : sprites.head1;
-  drawSet(batch, at(headSprite as Sets, frame.head), look.head, x, y, WHITE);
+  const headSet = at(headSprite as Sets, frame.head);
+  drawSet(batch, headSet, look.head, x, y, WHITE);
+  drawSet(batch, headSet, look.faceMark, x, y, WHITE);
 
   if (expression && (expression.extra & 1) !== 0) {
-    batch.drawSprite(sprites.blush, blushTint, look.defaultPalette, x, y);
+    batch.drawSprite(sprites.blush, look.look.blushColor || blushTint, look.defaultPalette, x, y);
+  } else if (look.look.blush) {
+    batch.drawSprite(sprites.blush, look.look.blushColor || blushTint, look.defaultPalette, x, y);
   }
 
   const [baseEyeLeft, baseEyeRight] = expressionBaseEyes(look);
