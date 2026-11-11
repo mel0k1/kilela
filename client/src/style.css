@@ -534,3 +534,53 @@ button {
 .history-buttons {
   margin-left: 8px;
 }
+
+.editor-footer-buttons {
+  display: flex;
+  gap: 8px;
+  margin-right: auto;
+}
+
+.editor-share {
+  margin-top: 14px;
+  padding: 12px;
+  border: 2px solid #e8d9b8;
+  border-radius: 12px;
+  background: #fdf3dd;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.share-hint {
+  font-size: 13px;
+  color: #8a7455;
+}
+
+.share-code {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  border: 2px solid #dcc79a;
+  border-radius: 8px;
+  background: #fffdf6;
+  padding: 8px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #4a3826;
+  box-sizing: border-box;
+}
+
+.share-row {
+  display: flex;
+  gap: 8px;
+}
+
+.share-status {
+  font-size: 13px;
+  color: #4d8b4d;
+}
+
+.share-status.error {
+  color: #c0392b;
+}

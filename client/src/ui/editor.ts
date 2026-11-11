@@ -34,6 +34,10 @@ export class Editor {
   private undoButton: HTMLButtonElement;
   private redoButton: HTMLButtonElement;
   private keyHandler: (e: KeyboardEvent) => void;
+  private exportButton: HTMLButtonElement;
+  private importButton: HTMLButtonElement;
+  private sharePanel: HTMLElement | undefined;
+  private shareMode: 'export' | 'import' | undefined;
 
   constructor(look: Look, cb: EditorCallbacks) {
     this.look = { ...look };
@@ -96,6 +100,21 @@ export class Editor {
     this.body = el('div', 'editor-body', right);
 
     const footer = el('div', 'editor-footer', panel);
+    const shareWrap = el('div', 'editor-footer-buttons', footer);
+    this.exportButton = el('button', 'btn small', shareWrap) as HTMLButtonElement;
+    this.exportButton.textContent = 'Экспорт';
+    this.exportButton.title = 'Скопировать код образа, чтобы поделиться';
+    this.exportButton.addEventListener('click', () => {
+      sfx.play('click');
+      this.toggleShare('export');
+    });
+    this.importButton = el('button', 'btn small', shareWrap) as HTMLButtonElement;
+    this.importButton.textContent = 'Импорт';
+    this.importButton.title = 'Загрузить образ из кода';
+    this.importButton.addEventListener('click', () => {
+      sfx.play('click');
+      this.toggleShare('import');
+    });
     const closeButton = el('button', 'btn', footer);
     closeButton.textContent = 'Отмена';
     closeButton.addEventListener('click', () => {
@@ -196,6 +215,93 @@ export class Editor {
     this.redoButton.disabled = this.historyIndex >= this.history.length - 1;
   }
 
+  private toggleShare(mode: 'export' | 'import') {
+    if (this.shareMode === mode) {
+      this.closeShare();
+      return;
+    }
+
+    this.sharePanel?.remove();
+    this.shareMode = mode;
+    this.exportButton.classList.toggle('active', mode === 'export');
+    this.importButton.classList.toggle('active', mode === 'import');
+    const panel = this.overlay.querySelector('.editor-panel') as HTMLElement | null;
+    const footer = this.overlay.querySelector('.editor-footer') as HTMLElement | null;
+
+    if (!panel || !footer) return;
+
+    const share = el('div', 'editor-share', panel);
+    panel.insertBefore(share, footer);
+    this.sharePanel = share;
+
+    if (mode === 'export') {
+      const hint = el('div', 'share-hint', share);
+      hint.textContent = 'Код твоей пони. Скопируй и передай другу — он вставит его через «Импорт».';
+      const textarea = el('textarea', 'share-code', share) as HTMLTextAreaElement;
+      textarea.readOnly = true;
+      textarea.value = encodeLook(this.look);
+      textarea.addEventListener('focus', () => textarea.select());
+      const copyButton = el('button', 'btn small', share);
+      copyButton.textContent = 'Скопировать код';
+      copyButton.addEventListener('click', () => {
+        const code = encodeLook(this.look);
+        textarea.value = code;
+        const done = () => {
+          sfx.play('pop');
+          copyButton.textContent = 'Скопировано!';
+          window.setTimeout(() => {
+            copyButton.textContent = 'Скопировать код';
+          }, 1600);
+        };
+
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done).catch(() => {
+            textarea.focus();
+            document.execCommand('copy');
+            done();
+          });
+        } else {
+          textarea.focus();
+          document.execCommand('copy');
+          done();
+        }
+      });
+    } else {
+      const hint = el('div', 'share-hint', share);
+      hint.textContent = 'Вставь код образа (начинается с KL…). Текущий образ сохранится в истории — можно отменить.';
+      const textarea = el('textarea', 'share-code', share) as HTMLTextAreaElement;
+      textarea.placeholder = 'KL4.…';
+      const status = el('div', 'share-status', share);
+      const row = el('div', 'share-row', share);
+      const loadButton = el('button', 'btn small primary', row);
+      loadButton.textContent = 'Загрузить образ';
+      loadButton.addEventListener('click', () => {
+        const code = textarea.value.trim();
+
+        if (!/^KL[2-9]\./.test(code)) {
+          status.textContent = 'Не похоже на код образа. Код начинается с KL4.';
+          status.classList.add('error');
+          return;
+        }
+
+        this.look = decodeLook(code);
+        this.commit();
+        this.refreshAll();
+        sfx.play('pop');
+        status.textContent = 'Образ загружен!';
+        status.classList.remove('error');
+      });
+    }
+  }
+
+  private closeShare() {
+    this.sharePanel?.remove();
+    this.sharePanel = undefined;
+    this.shareMode = undefined;
+    this.exportButton.classList.remove('active');
+    this.importButton.classList.remove('active');
+  }
+
   private refreshAll() {
     this.paletteLook = buildPaletteLook(this.look);
     this.renderTab();
@@ -212,7 +318,6 @@ export class Editor {
     cancelAnimationFrame(this.raf);
     window.removeEventListener('keydown', this.keyHandler);
     this.overlay.remove();
-
     if (save) {
       this.cb.onSave(this.look);
     } else {
