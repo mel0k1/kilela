@@ -7,6 +7,7 @@ import {
   headAccessoryCount, chestAccessoryCount, backAccessoryCount, legAccessoryCount,
   sleevesCount, waistCount, neckCount, muzzleCount,
   faceMarkCount, bodyMarkCount, legMarkCount,
+  earAccessoryCount, earAccessoryVariantCount, faceAccessoryCount, faceAccessoryVariantCount,
   DEFAULT_LOOK,
   type Look,
 } from '../pony/look';
@@ -280,7 +281,7 @@ export class Editor {
       const hint = el('div', 'share-hint', share);
       hint.textContent = 'Вставь код образа (начинается с KL…). Текущий образ сохранится в истории — можно отменить.';
       const textarea = el('textarea', 'share-code', share) as HTMLTextAreaElement;
-      textarea.placeholder = 'KL6.…';
+      textarea.placeholder = 'KL7.…';
       const status = el('div', 'share-status', share);
       const row = el('div', 'share-row', share);
       const loadButton = el('button', 'btn small primary', row);
@@ -289,7 +290,7 @@ export class Editor {
         const code = textarea.value.trim();
 
         if (!/^KL[2-9]\./.test(code)) {
-          status.textContent = 'Не похоже на код образа. Код начинается с KL6.';
+          status.textContent = 'Не похоже на код образа. Код начинается с KL7.';
           status.classList.add('error');
           return;
         }
@@ -390,6 +391,25 @@ export class Editor {
     const labelEl = el('div', 'editor-row-label', row);
     labelEl.textContent = label;
     colorSwatches(row, swatches, current, onPick);
+  }
+
+  private variantRow(parent: HTMLElement, label: string, count: number, current: number, build: (i: number) => Look, onPick: (i: number) => void) {
+    const row = el('div', 'editor-row', parent);
+    const labelEl = el('div', 'editor-row-label', row);
+    labelEl.textContent = label;
+
+    for (let i = 0; i < count; i++) {
+      const button = el('button', 'option-btn' + (i === current ? ' active' : ''), row) as HTMLButtonElement;
+      const canvas = this.miniPreview(build(i));
+      canvas.className = 'option-canvas';
+      button.appendChild(canvas);
+      button.addEventListener('click', () => {
+        sfx.play('click');
+        onPick(i);
+        row.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        button.classList.add('active');
+      });
+    }
   }
 
   private renderTab() {
@@ -855,6 +875,58 @@ export class Editor {
       if (look.neck > 0) {
         this.colorRow(this.body, 'Цвет платка', WARM_SWATCHES, look.neckColor, c => {
           look.neckColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const earAccLabel = el('div', 'editor-row-label', this.body);
+      earAccLabel.textContent = 'Серьги';
+      this.optionGrid(this.body, earAccessoryCount(), look.earAccessory, 'Нет',
+        i => ({ ...look, earAccessory: i }),
+        i => {
+          look.earAccessory = i;
+          look.earAccessoryVariant = 0;
+          this.scheduleRefresh();
+        });
+
+      if (look.earAccessory > 0) {
+        if (earAccessoryVariantCount(look.earAccessory) > 1) {
+          this.variantRow(this.body, 'Вид серьги', earAccessoryVariantCount(look.earAccessory), look.earAccessoryVariant,
+            i => ({ ...look, earAccessoryVariant: i }),
+            i => {
+              look.earAccessoryVariant = i;
+              this.scheduleRefresh();
+            });
+        }
+
+        this.colorRow(this.body, 'Цвет серьги', MANE_SWATCHES, look.earAccessoryColor, c => {
+          look.earAccessoryColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
+      const faceAccLabel = el('div', 'editor-row-label', this.body);
+      faceAccLabel.textContent = 'Очки и маски';
+      this.optionGrid(this.body, faceAccessoryCount(), look.faceAccessory, 'Нет',
+        i => ({ ...look, faceAccessory: i }),
+        i => {
+          look.faceAccessory = i;
+          look.faceAccessoryVariant = 0;
+          this.scheduleRefresh();
+        });
+
+      if (look.faceAccessory > 0) {
+        if (faceAccessoryVariantCount(look.faceAccessory) > 1) {
+          this.variantRow(this.body, 'Вид очков', faceAccessoryVariantCount(look.faceAccessory), look.faceAccessoryVariant,
+            i => ({ ...look, faceAccessoryVariant: i }),
+            i => {
+              look.faceAccessoryVariant = i;
+              this.scheduleRefresh();
+            });
+        }
+
+        this.colorRow(this.body, 'Цвет оправы', MANE_SWATCHES, look.faceAccessoryColor, c => {
+          look.faceAccessoryColor = c;
           this.scheduleRefresh();
         });
       }

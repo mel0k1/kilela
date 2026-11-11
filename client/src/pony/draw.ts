@@ -131,6 +131,7 @@ interface PartSet {
   type: number;
   pattern: number;
   palette: Uint32Array;
+  extraPalette?: Uint32Array;
 }
 
 function drawSet(batch: PonyBatch, sets: Sets, set: PartSet | undefined, x: number, y: number, tint: number) {
@@ -144,6 +145,26 @@ function drawSet(batch: PonyBatch, sets: Sets, set: PartSet | undefined, x: numb
 
   if (patternSprite && patternSprite.color) {
     batch.drawSprite(patternSprite.color, tint, set.palette, x, y);
+  }
+}
+
+function drawSetExtra(batch: PonyBatch, sets: Sets, set: PartSet | undefined, x: number, y: number, tint: number) {
+  if (!set) return;
+
+  const patterns = att(sets, set.type);
+
+  if (!patterns) return;
+
+  const patternSprite = at(patterns as NonNullable<ColorExtraSet>, set.pattern);
+
+  if (!patternSprite) return;
+
+  if (patternSprite.color) {
+    batch.drawSprite(patternSprite.color, tint, set.palette, x, y);
+  }
+
+  if (patternSprite.extra && set.extraPalette) {
+    batch.drawSprite(patternSprite.extra, WHITE, set.extraPalette, x, y);
   }
 }
 
@@ -367,6 +388,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   drawSet(batch, sprites.earsFar as Sets, look.ears, 0, 0, FAR_COLOR);
 
+  if (look.earAccessory) {
+    drawSet(batch, sprites.earAccessoriesBehind as Sets, look.earAccessory, 0, 0, WHITE);
+  }
+
   if (look.horn) {
     drawSet(batch, sprites.hornsBehind as Sets, look.horn, 0, 0, WHITE);
   }
@@ -491,6 +516,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   drawSet(batch, headSet, look.head, x, y, WHITE);
   drawSet(batch, headSet, look.faceMark, x, y, WHITE);
 
+  if (look.faceAccessory) {
+    drawSetExtra(batch, sprites.faceAccessories as Sets, look.faceAccessory, x, y, WHITE);
+  }
+
   if (expression && (expression.extra & 1) !== 0) {
     batch.drawSprite(sprites.blush, look.look.blushColor || blushTint, look.defaultPalette, x, y);
   } else if (look.look.blush) {
@@ -554,6 +583,14 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   }
 
   drawSet(batch, sprites.ears as Sets, look.ears, x, y, WHITE);
+
+  if (look.faceAccessory) {
+    drawSetExtra(batch, sprites.faceAccessories2 as Sets, look.faceAccessory, x, y, WHITE);
+  }
+
+  if (look.earAccessory) {
+    drawSet(batch, sprites.earAccessories as Sets, look.earAccessory, x, y, WHITE);
+  }
 
   if (mane) {
     drawSet(batch, sprites.frontManes as Sets, mane, x, y, WHITE);

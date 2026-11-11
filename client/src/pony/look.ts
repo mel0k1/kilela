@@ -1,5 +1,5 @@
 import * as sprites from './pt/sprites';
-import type { Expression, PaletteSpriteSet, ColorExtra, ColorExtraSets } from './pt/interfaces';
+import type { Expression, PaletteSpriteSet, ColorExtra, ColorExtraSet, ColorExtraSets } from './pt/interfaces';
 import { Eye, Iris, Muzzle, ExpressionExtra } from './pt/interfaces';
 import { BLACK, TRANSPARENT, WHITE, darkenForOutline, bitWriter, bitReaderCustom, clamp } from './pt/compat';
 
@@ -53,6 +53,12 @@ export interface Look {
   legMarkColor: number;
   eyeShadowColor: number;
   fangs: boolean;
+  earAccessory: number;
+  earAccessoryVariant: number;
+  earAccessoryColor: number;
+  faceAccessory: number;
+  faceAccessoryVariant: number;
+  faceAccessoryColor: number;
 }
 
 export interface ExpressionPreset {
@@ -237,6 +243,12 @@ export const DEFAULT_LOOK: Look = {
   legMarkColor: 0xf5f5f5ff,
   eyeShadowColor: 0,
   fangs: false,
+  earAccessory: 0,
+  earAccessoryVariant: 0,
+  earAccessoryColor: 0x808080ff,
+  faceAccessory: 0,
+  faceAccessoryVariant: 0,
+  faceAccessoryColor: 0x2c2c2cff,
 };
 
 const anySets = sprites as unknown as Record<string, ColorExtraSets>;
@@ -360,6 +372,8 @@ export interface PaletteLook {
   faceMark: PaletteSpriteSet | undefined;
   bodyMark: PaletteSpriteSet | undefined;
   legMark: PaletteSpriteSet | undefined;
+  earAccessory: PaletteSpriteSet | undefined;
+  faceAccessory: PaletteSpriteSet | undefined;
   look: Look;
 }
 
@@ -422,6 +436,12 @@ export function buildPaletteLook(look: Look): PaletteLook {
     faceMark: faceMarkSet,
     bodyMark: bodyMarkSet,
     legMark: legMarkSet,
+    earAccessory: look.earAccessory > 0
+      ? accessorySet(anySets.earAccessories as ColorExtraSets, look.earAccessory, look.earAccessoryVariant, look.earAccessoryColor, look.coat)
+      : undefined,
+    faceAccessory: look.faceAccessory > 0
+      ? accessorySet(anySets.faceAccessories as ColorExtraSets, look.faceAccessory, look.faceAccessoryVariant, look.faceAccessoryColor, look.coat)
+      : undefined,
     look,
   };
 }
@@ -430,6 +450,26 @@ function markPaletteOf(pattern: ColorExtra | undefined, fills: number[], coat: n
   if (mark <= 0) return undefined;
 
   return { type: 0, pattern: mark, palette: paletteFor(pattern, fills.length > 0 ? fills : [coat], coat) };
+}
+
+function accessorySet(set: ColorExtraSets, type: number, pattern: number, color: number, coat: number): PaletteSpriteSet | undefined {
+  if (type <= 0 || !set) return undefined;
+
+  const variants = set[type];
+
+  if (!variants || variants.length === 0) return undefined;
+
+  const p = ((pattern % variants.length) + variants.length) % variants.length;
+  const entry = variants[p];
+
+  if (!entry) return undefined;
+
+  return {
+    type,
+    pattern: p,
+    palette: paletteFor(entry, [color], coat),
+    extraPalette: entry.palettes && entry.palettes[0] ? entry.palettes[0] : undefined,
+  };
 }
 
 function typeCount(set: ColorExtraSets): number {
@@ -478,6 +518,39 @@ export function backAccessoryCount(): number {
 
 export function legAccessoryCount(): number {
   return Math.min(typeCount(anySets.frontLegAccessories), typeCount(anySets.backLegAccessories));
+}
+
+function validTypeCount(set: ColorExtraSets): number {
+  if (!set) return 1;
+
+  let count = 1;
+
+  for (let i = 1; i < set.length; i++) {
+    if (set[i] && (set[i] as NonNullable<ColorExtraSet>).some(Boolean)) count = i + 1;
+  }
+
+  return count;
+}
+
+function variantCount(set: ColorExtraSets, type: number): number {
+  const variants = set ? set[type] : undefined;
+  return variants ? variants.filter(Boolean).length || 1 : 1;
+}
+
+export function earAccessoryCount(): number {
+  return validTypeCount(anySets.earAccessories);
+}
+
+export function earAccessoryVariantCount(type: number): number {
+  return variantCount(anySets.earAccessories as ColorExtraSets, type);
+}
+
+export function faceAccessoryCount(): number {
+  return validTypeCount(anySets.faceAccessories);
+}
+
+export function faceAccessoryVariantCount(type: number): number {
+  return variantCount(anySets.faceAccessories as ColorExtraSets, type);
 }
 
 function animatedTypeCount(sets: unknown): number {
@@ -584,6 +657,12 @@ export function randomLook(): Look {
     legMarkColor: pick(coats),
     eyeShadowColor: 0,
     fangs: Math.random() < 0.08,
+    earAccessory: Math.random() < 0.12 ? 1 + Math.floor(Math.random() * Math.max(1, earAccessoryCount() - 1)) : 0,
+    earAccessoryVariant: 0,
+    earAccessoryColor: pick(maneColors),
+    faceAccessory: Math.random() < 0.08 ? 1 + Math.floor(Math.random() * Math.max(1, faceAccessoryCount() - 1)) : 0,
+    faceAccessoryVariant: 0,
+    faceAccessoryColor: pick([0x2c2c2cff, 0x404040ff, 0x8a5a3bff, 0x34495eff]),
   };
 
   look.wingsColor = look.coat;
@@ -659,6 +738,12 @@ export function encodeLook(look: Look): string {
     }
 
     w(look.fangs ? 1 : 0, 1);
+    w(look.earAccessory || 0, 4);
+    w(look.earAccessoryVariant || 0, 2);
+    w(look.earAccessoryColor || 0x808080ff, 32);
+    w(look.faceAccessory || 0, 4);
+    w(look.faceAccessoryVariant || 0, 2);
+    w(look.faceAccessoryColor || 0x2c2c2cff, 32);
   });
 
   let binary = '';
@@ -667,15 +752,15 @@ export function encodeLook(look: Look): string {
     binary += String.fromCharCode(b);
   }
 
-  return 'KL6.' + btoa(binary);
+  return 'KL7.' + btoa(binary);
 }
 
 export function decodeLook(code: string): Look {
-  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.') && !code.startsWith('KL5.') && !code.startsWith('KL6.')) {
+  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.') && !code.startsWith('KL5.') && !code.startsWith('KL6.') && !code.startsWith('KL7.')) {
     return { ...DEFAULT_LOOK };
   }
 
-  const version = code.startsWith('KL6.') ? 6 : code.startsWith('KL5.') ? 5 : code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
+  const version = code.startsWith('KL7.') ? 7 : code.startsWith('KL6.') ? 6 : code.startsWith('KL5.') ? 5 : code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
 
   try {
     const binary = atob(code.slice(4));
@@ -740,6 +825,12 @@ export function decodeLook(code: string): Look {
       legMarkColor: 0xf5f5f5ff,
       eyeShadowColor: 0,
       fangs: false,
+      earAccessory: 0,
+      earAccessoryVariant: 0,
+      earAccessoryColor: 0x808080ff,
+      faceAccessory: 0,
+      faceAccessoryVariant: 0,
+      faceAccessoryColor: 0x2c2c2cff,
     };
 
     if (read(1)) look.maneColors.push(read(32));
@@ -813,6 +904,15 @@ export function decodeLook(code: string): Look {
       }
 
       look.fangs = read(1) === 1;
+    }
+
+    if (version >= 7) {
+      look.earAccessory = read(4);
+      look.earAccessoryVariant = read(2);
+      look.earAccessoryColor = read(32);
+      look.faceAccessory = read(4);
+      look.faceAccessoryVariant = read(2);
+      look.faceAccessoryColor = read(32);
     }
 
     return look;
