@@ -74,6 +74,7 @@ interface EntityView {
   label: Text;
   bubbleText: Text | undefined;
   bubbleBg: Graphics | undefined;
+  bubbleThink: boolean;
   bubbleTimer: number;
   emoteSprite: Sprite | undefined;
   emoteAnim: EmoteAnim | undefined;
@@ -387,7 +388,7 @@ export class WorldView {
 
     const view: EntityView = {
       id, name, actor, look, lookCode, toy, sprite, canvas, label,
-      bubbleText: undefined, bubbleBg: undefined, bubbleTimer: 0,
+      bubbleText: undefined, bubbleBg: undefined, bubbleThink: false, bubbleTimer: 0,
       emoteSprite: undefined, emoteAnim: undefined, emoteFrame: 0, emoteFrameTime: 0, emoteTimer: 0,
       x, y, sx: x, sy: y, dir: 0,
       swimming: false,
@@ -465,7 +466,7 @@ export class WorldView {
     view.label.position.set(px, py - 72);
     view.label.zIndex = py + 0.5;
     view.bubbleBg?.position.set(px, py - 96);
-    view.bubbleText?.position.set(px, py - 90);
+    view.bubbleText?.position.set(px, view.bubbleThink ? py - 116 : py - 90);
 
     if (view.emoteSprite) {
       view.emoteSprite.position.set(px, py);
@@ -499,7 +500,7 @@ export class WorldView {
     view.toy = toy;
   }
 
-  showBubble(id: number, text: string) {
+  showBubble(id: number, text: string, kind: 'say' | 'think' = 'say') {
     const view = this.entities.get(id);
 
     if (!view) return;
@@ -509,10 +510,12 @@ export class WorldView {
       view.bubbleBg?.destroy();
     }
 
+    const think = kind === 'think';
     const bubbleText = new Text({
       text,
       style: {
-        fontFamily: 'Trebuchet MS, sans-serif', fontSize: 12, fill: 0x3a2e1e,
+        fontFamily: 'Trebuchet MS, sans-serif', fontSize: 12, fill: think ? 0x52436b : 0x3a2e1e,
+        fontStyle: think ? 'italic' : 'normal',
         wordWrap: true, wordWrapWidth: 170, breakWords: true, align: 'center',
       },
     });
@@ -520,9 +523,23 @@ export class WorldView {
     const bg = new Graphics();
     const w = Math.max(34, bubbleText.width + 16);
     const h = bubbleText.height + 12;
-    bg.roundRect(-w / 2, -h, w, h, 8);
-    bg.fill({ color: 0xfff9e8, alpha: 0.94 });
-    bg.stroke({ color: 0xd8c49a, width: 1.5 });
+
+    if (think) {
+      bg.ellipse(0, -h / 2 - 14, w / 2, h / 2);
+      bg.fill({ color: 0xf7f3ff, alpha: 0.95 });
+      bg.stroke({ color: 0xb9a4d8, width: 1.5 });
+      bg.circle(-w * 0.34, -8, 4.5);
+      bg.fill({ color: 0xf7f3ff, alpha: 0.95 });
+      bg.stroke({ color: 0xb9a4d8, width: 1.5 });
+      bg.circle(-w * 0.47, -2.5, 2.5);
+      bg.fill({ color: 0xf7f3ff, alpha: 0.95 });
+      bg.stroke({ color: 0xb9a4d8, width: 1.5 });
+    } else {
+      bg.roundRect(-w / 2, -h, w, h, 8);
+      bg.fill({ color: 0xfff9e8, alpha: 0.94 });
+      bg.stroke({ color: 0xd8c49a, width: 1.5 });
+    }
+
     bg.position.set(0, 0);
     bg.zIndex = 100001;
     bubbleText.zIndex = 100002;
@@ -530,6 +547,7 @@ export class WorldView {
     this.mainLayer.addChild(bubbleText);
     view.bubbleText = bubbleText;
     view.bubbleBg = bg;
+    view.bubbleThink = think;
     view.bubbleTimer = 6;
     this.placeEntityAtTile(view);
   }
@@ -658,6 +676,7 @@ export class WorldView {
           view.bubbleBg?.destroy();
           view.bubbleText = undefined;
           view.bubbleBg = undefined;
+          view.bubbleThink = false;
         }
       }
 

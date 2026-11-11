@@ -77,10 +77,15 @@ export interface PosBatchMsg {
   list: [number, number, number, number][];
 }
 
+export type ChatKind = 'say' | 'think' | 'whisper';
+
 export interface ChatFromMsg {
   t: 'chat';
   id: number;
   text: string;
+  kind?: ChatKind;
+  name?: string;
+  to?: string;
 }
 
 export interface EmoteFromMsg {

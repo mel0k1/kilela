@@ -2,7 +2,7 @@ import { Application } from 'pixi.js';
 import { WorldView, directionFromVector } from '../world/view';
 import { TILE_W, TILE_H } from '../world/tiles';
 import { Net } from '../net';
-import { getMap, type PortalDef } from '../../../shared/protocol';
+import { getMap, type ChatKind, type PortalDef } from '../../../shared/protocol';
 import type { PathPoint } from '../../../shared/world';
 import { PonyActor, type Target } from '../pony/anim';
 import { buildPaletteLook, decodeLook, encodeLook, type Look, type PaletteLook } from '../pony/look';
@@ -14,7 +14,7 @@ const SPEED = 4.2;
 const PORTAL_RADIUS = 1.8;
 
 export interface GameCallbacks {
-  onChat(id: number, name: string, text: string): void;
+  onChat(id: number, name: string, text: string, kind: ChatKind, to?: string): void;
   onSys(text: string): void;
   onErr(text: string): void;
   onOnline(n: number): void;
@@ -134,12 +134,19 @@ export class Game {
         break;
       }
       case 'chat': {
-        const name = msg.id === this.myId ? this.myName : this.view.entities.get(msg.id)?.name || '?';
-        this.view.showBubble(msg.id, msg.text);
-        this.cb.onChat(msg.id, name, msg.text);
+        const kind: ChatKind = msg.kind ?? 'say';
+        const name = msg.id === this.myId ? this.myName : msg.name || this.view.entities.get(msg.id)?.name || '?';
+
+        if (kind === 'whisper') {
+          this.cb.onChat(msg.id, name, msg.text, kind, msg.to);
+          break;
+        }
+
+        this.view.showBubble(msg.id, msg.text, kind);
+        this.cb.onChat(msg.id, name, msg.text, kind);
         const view = this.view.entities.get(msg.id);
 
-        if (view && view.actor.target !== 'fly') {
+        if (view && kind === 'say' && view.actor.target !== 'fly') {
           view.actor.applyExpression(parseChatExpression(msg.text));
         }
 

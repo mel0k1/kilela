@@ -225,6 +225,20 @@ button {
   font-style: italic;
 }
 
+.chat-line.think .chat-text {
+  color: #ddd2f0;
+  font-style: italic;
+}
+
+.chat-line.whisper .chat-name {
+  color: #b9cbe8;
+}
+
+.chat-line.whisper .chat-text {
+  color: #cfd9ec;
+  font-style: italic;
+}
+
 .chat-bar {
   position: absolute;
   left: 12px;

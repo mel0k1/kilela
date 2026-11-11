@@ -223,10 +223,105 @@ function sanitizeLook(raw: string): string {
   return look.startsWith(LOOK_PREFIX) && look.length <= LOOK_MAX ? look : LOOK_PREFIX;
 }
 
+function argAfter(cmd: string): string {
+  const sp = cmd.indexOf(' ');
+  return sp >= 0 ? cmd.slice(sp + 1).trim() : '';
+}
+
+function findWhisperTarget(p: Player, raw: string): Player | undefined {
+  const q = raw.trim().toLowerCase();
+
+  if (!q) return undefined;
+
+  const room = getRoom(p.map);
+
+  for (const o of room.players.values()) {
+    if (o.id !== p.id && o.name.toLowerCase() === q) return o;
+  }
+
+  for (const o of players.values()) {
+    if (!o.bot && o.id !== p.id && o.name.toLowerCase() === q) return o;
+  }
+
+  const roomPrefix = [...room.players.values()].filter(o => o.id !== p.id && o.name.toLowerCase().startsWith(q));
+
+  if (roomPrefix.length === 1) return roomPrefix[0];
+
+  const globalPrefix = [...players.values()].filter(o => !o.bot && o.id !== p.id && o.name.toLowerCase().startsWith(q));
+
+  return globalPrefix.length === 1 ? globalPrefix[0] : undefined;
+}
+
+function handleWhisper(p: Player, clean: string) {
+  const rest = argAfter(clean);
+  const nameEnd = rest.indexOf(' ');
+  const targetName = (nameEnd >= 0 ? rest.slice(0, nameEnd) : rest).trim();
+  const text = (nameEnd >= 0 ? rest.slice(nameEnd + 1) : '').trim().slice(0, MAX_CHAT);
+
+  if (!targetName || !text) {
+    send(p.ws!, { t: 'sys', text: 'Шепнуть: /w Имя текст' });
+    return;
+  }
+
+  const target = findWhisperTarget(p, targetName);
+
+  if (!target) {
+    send(p.ws!, { t: 'sys', text: `Пони с именем «${targetName}» нет поблизости.` });
+    return;
+  }
+
+  if (target.ws) {
+    send(target.ws, { t: 'chat', id: p.id, text, kind: 'whisper', name: p.name });
+  }
+
+  send(p.ws!, { t: 'chat', id: p.id, text, kind: 'whisper', name: p.name, to: target.name });
+
+  if (target.bot) {
+    const reply = BOT_REPLIES[Math.floor(Math.random() * BOT_REPLIES.length)];
+
+    setTimeout(() => {
+      if (p.ws) {
+        send(p.ws, { t: 'chat', id: target.id, text: reply, kind: 'whisper', name: target.name });
+      }
+    }, 900 + Math.random() * 1200);
+  }
+}
+
 function handleChat(p: Player, text: string) {
   const clean = String(text || '').trim().slice(0, MAX_CHAT);
 
   if (!clean) return;
+
+  if (
+    clean.startsWith('/w ') || clean.startsWith('/whisper ') ||
+    clean.startsWith('/ш ') || clean.startsWith('/шепни ')
+  ) {
+    handleWhisper(p, clean);
+    return;
+  }
+
+  if (
+    clean === '/think' || clean.startsWith('/think ') ||
+    clean === '/т' || clean.startsWith('/т ') ||
+    clean === '/мысли' || clean.startsWith('/мысли ')
+  ) {
+    const arg = argAfter(clean);
+
+    if (arg) {
+      broadcast(p.map, { t: 'chat', id: p.id, text: arg, kind: 'think' });
+    }
+
+    return;
+  }
+
+  if (
+    clean === '/shrug' || clean.startsWith('/shrug ') ||
+    clean === '/пожми' || clean.startsWith('/пожми ')
+  ) {
+    const arg = argAfter(clean).slice(0, MAX_CHAT - 14);
+    broadcast(p.map, { t: 'chat', id: p.id, text: arg ? `${arg} ¯\\_(ツ)_/¯` : '¯\\_(ツ)_/¯' });
+    return;
+  }
 
   if (clean === '/roll' || clean.startsWith('/roll ')) {
     const arg = clean.slice(5).trim();

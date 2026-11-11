@@ -1,6 +1,6 @@
 import { el, clear } from './dom';
 import { sfx } from '../audio/sfx';
-import { TOYS } from '../../../shared/protocol';
+import { TOYS, type ChatKind } from '../../../shared/protocol';
 
 export interface HudCallbacks {
   onEmote(action: string): void;
@@ -77,6 +77,7 @@ export class Hud {
     this.chatInput = el('input', 'chat-input', chatBar) as HTMLInputElement;
     this.chatInput.maxLength = 200;
     this.chatInput.placeholder = 'Сказать что-нибудь…';
+    this.chatInput.title = '/w Имя текст — шепнуть, /think текст — мысли, /shrug — пожать плечами, /roll — кубик';
     this.chatInput.addEventListener('keydown', e => {
       e.stopPropagation();
 
@@ -209,12 +210,21 @@ export class Hud {
     this.clockLabel.textContent = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
   }
 
-  addChat(name: string, text: string, own: boolean) {
-    const line = el('div', 'chat-line' + (own ? ' own' : ''), this.chatLog);
+  addChat(name: string, text: string, own: boolean, kind: ChatKind = 'say', to?: string) {
+    const line = el('div', 'chat-line' + (own ? ' own' : '') + (kind !== 'say' ? ` ${kind}` : ''), this.chatLog);
     const nameSpan = el('span', 'chat-name', line);
-    nameSpan.textContent = name;
     const textSpan = el('span', 'chat-text', line);
-    textSpan.textContent = `: ${text}`;
+
+    if (kind === 'whisper') {
+      nameSpan.textContent = own ? 'Ты' : name;
+      textSpan.textContent = own ? ` шепчешь ${to || '?'}: ${text}` : ` шепчет тебе: ${text}`;
+    } else if (kind === 'think') {
+      nameSpan.textContent = name;
+      textSpan.textContent = ` (думает): ${text}`;
+    } else {
+      nameSpan.textContent = name;
+      textSpan.textContent = `: ${text}`;
+    }
 
     while (this.chatLog.children.length > 60) {
       this.chatLog.removeChild(this.chatLog.firstChild!);

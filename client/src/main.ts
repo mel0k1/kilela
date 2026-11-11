@@ -50,8 +50,8 @@ function startGame(app: Application, name: string, look: Look) {
   music.setVolume(Number(localStorage.getItem('kilela.music') ?? 0.45));
 
   const game = new Game(currentLook, {
-    onChat(id, who, text) {
-      hud.addChat(who, text, id === game.myId);
+    onChat(id, who, text, kind, to) {
+      hud.addChat(who, text, id === game.myId, kind, to);
     },
     onSys(text) {
       hud.addSystem(text);
