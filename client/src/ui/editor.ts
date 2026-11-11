@@ -280,7 +280,7 @@ export class Editor {
       const hint = el('div', 'share-hint', share);
       hint.textContent = 'Вставь код образа (начинается с KL…). Текущий образ сохранится в истории — можно отменить.';
       const textarea = el('textarea', 'share-code', share) as HTMLTextAreaElement;
-      textarea.placeholder = 'KL5.…';
+      textarea.placeholder = 'KL6.…';
       const status = el('div', 'share-status', share);
       const row = el('div', 'share-row', share);
       const loadButton = el('button', 'btn small primary', row);
@@ -289,7 +289,7 @@ export class Editor {
         const code = textarea.value.trim();
 
         if (!/^KL[2-9]\./.test(code)) {
-          status.textContent = 'Не похоже на код образа. Код начинается с KL5.';
+          status.textContent = 'Не похоже на код образа. Код начинается с KL6.';
           status.classList.add('error');
           return;
         }
@@ -607,6 +607,25 @@ export class Editor {
         });
       }
 
+      const shadowRow = el('div', 'editor-row', this.body);
+      const shadowLabel = el('div', 'editor-row-label', shadowRow);
+      shadowLabel.textContent = 'Тени для глаз';
+      const shadowToggle = el('button', 'btn small' + (look.eyeShadowColor ? ' active' : ''), shadowRow);
+      shadowToggle.textContent = look.eyeShadowColor ? 'Есть' : 'Нет';
+      shadowToggle.addEventListener('click', () => {
+        look.eyeShadowColor = look.eyeShadowColor ? 0 : 0x4a2a52ff;
+        shadowToggle.textContent = look.eyeShadowColor ? 'Есть' : 'Нет';
+        shadowToggle.classList.toggle('active', !!look.eyeShadowColor);
+        this.scheduleRefresh();
+      });
+
+      if (look.eyeShadowColor) {
+        colorSwatches(shadowRow, MANE_SWATCHES, look.eyeShadowColor, c => {
+          look.eyeShadowColor = c;
+          this.scheduleRefresh();
+        });
+      }
+
       const eyeLabel = el('div', 'editor-row-label', this.body);
       eyeLabel.textContent = 'Глаза (форма)';
       this.optionGrid(this.body, EYE_SHAPES.length + 1, EYE_SHAPES.indexOf(look.eyeOpenness) + 1, 'Как пресет',
@@ -674,6 +693,18 @@ export class Editor {
           look.muzzle = i;
           this.scheduleRefresh();
         });
+
+      const fangsRow = el('div', 'editor-row', this.body);
+      const fangsLabel = el('div', 'editor-row-label', fangsRow);
+      fangsLabel.textContent = 'Клыки';
+      const fangsToggle = el('button', 'btn small' + (look.fangs ? ' active' : ''), fangsRow);
+      fangsToggle.textContent = look.fangs ? 'Есть' : 'Нет';
+      fangsToggle.addEventListener('click', () => {
+        look.fangs = !look.fangs;
+        fangsToggle.textContent = look.fangs ? 'Есть' : 'Нет';
+        fangsToggle.classList.toggle('active', look.fangs);
+        this.scheduleRefresh();
+      });
 
       const faceMarkLabel = el('div', 'editor-row-label', this.body);
       faceMarkLabel.textContent = 'Метки на морде';

@@ -51,6 +51,8 @@ export interface Look {
   bodyMarkColor: number;
   legMark: number;
   legMarkColor: number;
+  eyeShadowColor: number;
+  fangs: boolean;
 }
 
 export interface ExpressionPreset {
@@ -233,6 +235,8 @@ export const DEFAULT_LOOK: Look = {
   bodyMarkColor: 0xf5f5f5ff,
   legMark: 0,
   legMarkColor: 0xf5f5f5ff,
+  eyeShadowColor: 0,
+  fangs: false,
 };
 
 const anySets = sprites as unknown as Record<string, ColorExtraSets>;
@@ -578,6 +582,8 @@ export function randomLook(): Look {
     bodyMarkColor: pick(coats),
     legMark: Math.random() < 0.15 ? 1 + Math.floor(Math.random() * legMarkCount()) : 0,
     legMarkColor: pick(coats),
+    eyeShadowColor: 0,
+    fangs: Math.random() < 0.08,
   };
 
   look.wingsColor = look.coat;
@@ -646,6 +652,13 @@ export function encodeLook(look: Look): string {
     w(((look.bodyMarkColor || 0) >>> 8) & 0xffffff, 24);
     w(look.legMark || 0, 2);
     w(((look.legMarkColor || 0) >>> 8) & 0xffffff, 24);
+    w(look.eyeShadowColor ? 1 : 0, 1);
+
+    if (look.eyeShadowColor) {
+      w(((look.eyeShadowColor) >>> 8) & 0xffffff, 24);
+    }
+
+    w(look.fangs ? 1 : 0, 1);
   });
 
   let binary = '';
@@ -654,15 +667,15 @@ export function encodeLook(look: Look): string {
     binary += String.fromCharCode(b);
   }
 
-  return 'KL5.' + btoa(binary);
+  return 'KL6.' + btoa(binary);
 }
 
 export function decodeLook(code: string): Look {
-  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.') && !code.startsWith('KL5.')) {
+  if (!code.startsWith('KL2.') && !code.startsWith('KL3.') && !code.startsWith('KL4.') && !code.startsWith('KL5.') && !code.startsWith('KL6.')) {
     return { ...DEFAULT_LOOK };
   }
 
-  const version = code.startsWith('KL5.') ? 5 : code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
+  const version = code.startsWith('KL6.') ? 6 : code.startsWith('KL5.') ? 5 : code.startsWith('KL4.') ? 4 : code.startsWith('KL3.') ? 3 : 2;
 
   try {
     const binary = atob(code.slice(4));
@@ -725,6 +738,8 @@ export function decodeLook(code: string): Look {
       bodyMarkColor: 0xf5f5f5ff,
       legMark: 0,
       legMarkColor: 0xf5f5f5ff,
+      eyeShadowColor: 0,
+      fangs: false,
     };
 
     if (read(1)) look.maneColors.push(read(32));
@@ -790,6 +805,14 @@ export function decodeLook(code: string): Look {
       look.bodyMarkColor = ((read(24) << 8) | 0xff) >>> 0;
       look.legMark = read(2);
       look.legMarkColor = ((read(24) << 8) | 0xff) >>> 0;
+    }
+
+    if (version >= 6) {
+      if (read(1)) {
+        look.eyeShadowColor = ((read(24) << 8) | 0xff) >>> 0;
+      }
+
+      look.fangs = read(1) === 1;
     }
 
     return look;

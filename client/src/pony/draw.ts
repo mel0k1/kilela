@@ -275,8 +275,8 @@ function getMouthFrame(
 }
 
 function drawEye(
-  batch: PonyBatch, eye: { base?: Sprite; irises: (Sprite | undefined)[] } | undefined,
-  iris: Iris, eyePalette: Uint32Array, irisPalette: Uint32Array, x: number, y: number,
+  batch: PonyBatch, eye: { base?: Sprite; irises: (Sprite | undefined)[]; shadow?: Sprite; shine?: Sprite } | undefined,
+  iris: Iris, eyePalette: Uint32Array, irisPalette: Uint32Array, shadowPalette: Uint32Array | undefined, x: number, y: number,
 ) {
   if (!eye) return;
 
@@ -285,6 +285,12 @@ function drawEye(
   const irisSprite = at(eye.irises, iris);
 
   irisSprite && batch.drawSprite(irisSprite, WHITE, irisPalette, x, y);
+
+  if (eye.shadow && shadowPalette) {
+    batch.drawSprite(eye.shadow, WHITE, shadowPalette, x, y);
+  }
+
+  eye.shine && batch.drawSprite(eye.shine, WHITE, undefined, x, y);
 }
 
 function expressionBaseEyes(look: PaletteLook): [Eye, Eye] {
@@ -502,9 +508,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   const drawnIrisRight = headFlip ? flipIris(irisLeft) : irisRight;
   const eyeSets = sprites.eyeLeft as unknown as EyeSprites[];
   const eyeSetsRight = sprites.eyeRight as unknown as EyeSprites[];
+  const shadowPalette = look.look.eyeShadowColor ? new Uint32Array([0, look.look.eyeShadowColor]) : undefined;
 
-  drawEye(batch, att(at(eyeSets, drawnEyeFrameLeft), look.eyelashes), drawnIrisLeft, look.eyePalette, look.eyeColor, x, y);
-  drawEye(batch, att(at(eyeSetsRight, drawnEyeFrameRight), look.eyelashes), drawnIrisRight, look.eyePalette, look.eyeColor, x, y);
+  drawEye(batch, att(at(eyeSets, drawnEyeFrameLeft), look.eyelashes), drawnIrisLeft, look.eyePalette, look.eyeColor, shadowPalette, x, y);
+  drawEye(batch, att(at(eyeSetsRight, drawnEyeFrameRight), look.eyelashes), drawnIrisRight, look.eyePalette, look.eyeColor, shadowPalette, x, y);
 
   if (look.facialHair) {
     drawSet(batch, sprites.facialHairBehind as Sets, look.facialHair, x, y, WHITE);
@@ -520,6 +527,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   if (look.nose) {
     drawSet(batch, noses as Sets, look.nose, x, y, WHITE);
+  }
+
+  if (look.look.fangs && noseExtra && noseExtra.fangs) {
+    batch.drawSprite(noseExtra.fangs, WHITE, look.defaultPalette, x, y);
   }
 
   if (look.facialHair) {
