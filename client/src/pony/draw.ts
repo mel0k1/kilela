@@ -307,7 +307,7 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   const expression = state.expression;
   const mane = look.mane;
   const backMane = look.backMane;
-  const headFlip = flipped;
+  const headFlip = headTurned ? !flipped : flipped;
   const noMane = !mane || mane.type === 0 || mane.type === 16;
   const hatOffset = HEAD_ACCESSORY_OFFSETS[clamp(mane ? mane.type : 0, 0, HEAD_ACCESSORY_OFFSETS.length - 1)];
   const chestOffset = at(chestAccessoryOffsets, body);

@@ -74,6 +74,11 @@ function startGame(app: Application, name: string, look: Look) {
       hud.markEmoteActive(action === 'stand' || action === 'wake' || action === 'land' ? '' : action);
     },
     onChatSend(text) {
+      if (text === '/turn' || text === '/поворот') {
+        game.sendEmote('turn');
+        return;
+      }
+
       game.net.send({ t: 'chat', text });
     },
     onOpenEditor() {
@@ -155,6 +160,8 @@ function startGame(app: Application, name: string, look: Look) {
       sfx.resume();
       sfx.setEnabled(on);
       hud.setSoundOn(on);
+    } else if (key === 'h' || key === 'р') {
+      game.sendEmote('turn');
     }
   });
 

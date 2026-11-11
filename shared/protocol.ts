@@ -231,6 +231,7 @@ export function validEmote(action: string): boolean {
     case 'fly':
     case 'land':
     case 'kiss':
+    case 'turn':
       return true;
     default:
       return false;

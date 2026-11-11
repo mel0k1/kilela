@@ -282,6 +282,9 @@ export class Game {
         actor.playExpression('kiss');
         this.view.showEmote(id, 'emote_hearts', 3);
         break;
+      case 'turn':
+        actor.state.headTurned = !actor.state.headTurned;
+        break;
     }
   }
 

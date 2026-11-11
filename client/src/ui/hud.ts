@@ -108,6 +108,7 @@ export class Hud {
     });
 
     const emoteBar = el('div', 'emote-bar', this.root);
+    this.addEmote(emoteBar, 'turn', '🙃', 'Повернуть голову (H)');
     this.addEmote(emoteBar, 'fly', '🪽', 'Взлететь / приземлиться');
     this.addEmote(emoteBar, 'sit', '🪑', 'Сесть / встать');
     this.addEmote(emoteBar, 'sleep', '💤', 'Лечь / встать');
