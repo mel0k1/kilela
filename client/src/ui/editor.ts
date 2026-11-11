@@ -2,7 +2,7 @@ import { el, clear, colorSwatches, cssToColor, colorToCss, WARM_SWATCHES, MANE_S
 import { PonyActor } from '../pony/anim';
 import { drawPonyToCanvas } from '../pony/draw';
 import {
-  buildPaletteLook, encodeLook, EXPRESSION_PRESETS, CUTIE_MARKS, randomLook,
+  buildPaletteLook, encodeLook, decodeLook, EXPRESSION_PRESETS, CUTIE_MARKS, randomLook,
   maneCount, backManeCount, tailCount, wingsCount, hornCount, earsCount, facialHairCount,
   headAccessoryCount, chestAccessoryCount, backAccessoryCount, legAccessoryCount,
   sleevesCount, waistCount, neckCount, muzzleCount,
@@ -29,6 +29,11 @@ export class Editor {
   private raf = 0;
   private lastTime = 0;
   private renderTimer = 0;
+  private history: string[] = [];
+  private historyIndex = -1;
+  private undoButton: HTMLButtonElement;
+  private redoButton: HTMLButtonElement;
+  private keyHandler: (e: KeyboardEvent) => void;
 
   constructor(look: Look, cb: EditorCallbacks) {
     this.look = { ...look };
@@ -58,6 +63,18 @@ export class Editor {
       });
     }
 
+    const historyButtons = el('div', 'dir-buttons history-buttons', header);
+    this.undoButton = el('button', 'btn small', historyButtons) as HTMLButtonElement;
+    this.undoButton.textContent = '↩';
+    this.undoButton.title = 'Отменить (Ctrl+Z)';
+    this.undoButton.disabled = true;
+    this.undoButton.addEventListener('click', () => this.undo());
+    this.redoButton = el('button', 'btn small', historyButtons) as HTMLButtonElement;
+    this.redoButton.textContent = '↪';
+    this.redoButton.title = 'Вернуть (Ctrl+Y)';
+    this.redoButton.disabled = true;
+    this.redoButton.addEventListener('click', () => this.redo());
+
     const content = el('div', 'editor-content', panel);
     const previewWrap = el('div', 'editor-preview', content);
     this.previewCanvas = el('canvas', 'preview-canvas', previewWrap) as HTMLCanvasElement;
@@ -70,6 +87,7 @@ export class Editor {
     randomButton.addEventListener('click', () => {
       sfx.play('pop');
       this.look = { ...randomLook() };
+      this.commit();
       this.refreshAll();
     });
 
@@ -109,8 +127,73 @@ export class Editor {
     }
 
     this.renderTab();
+    this.commit();
+    this.keyHandler = e => {
+      if (e.ctrlKey || e.metaKey) {
+        const target = e.target as HTMLElement | null;
+
+        if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+          return;
+        }
+
+        const key = e.key.toLowerCase();
+
+        if (key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          this.undo();
+        } else if (key === 'y' || (key === 'z' && e.shiftKey)) {
+          e.preventDefault();
+          this.redo();
+        }
+      }
+    };
+    window.addEventListener('keydown', this.keyHandler);
     this.lastTime = performance.now();
     this.loop();
+  }
+
+  private commit() {
+    const code = encodeLook(this.look);
+
+    if (code === this.history[this.historyIndex]) return;
+
+    this.history.splice(this.historyIndex + 1);
+    this.history.push(code);
+
+    if (this.history.length > 100) {
+      this.history.shift();
+    }
+
+    this.historyIndex = this.history.length - 1;
+    this.updateHistoryButtons();
+  }
+
+  private undo() {
+    if (this.historyIndex <= 0) return;
+
+    sfx.play('click');
+    this.historyIndex--;
+    this.applyHistory();
+  }
+
+  private redo() {
+    if (this.historyIndex >= this.history.length - 1) return;
+
+    sfx.play('click');
+    this.historyIndex++;
+    this.applyHistory();
+  }
+
+  private applyHistory() {
+    this.look = decodeLook(this.history[this.historyIndex]);
+    this.paletteLook = buildPaletteLook(this.look);
+    this.renderTab();
+    this.updateHistoryButtons();
+  }
+
+  private updateHistoryButtons() {
+    this.undoButton.disabled = this.historyIndex <= 0;
+    this.redoButton.disabled = this.historyIndex >= this.history.length - 1;
   }
 
   private refreshAll() {
@@ -119,6 +202,7 @@ export class Editor {
   }
 
   private scheduleRefresh() {
+    this.commit();
     this.paletteLook = buildPaletteLook(this.look);
     clearTimeout(this.renderTimer);
     this.renderTimer = window.setTimeout(() => this.renderTab(), 180);
@@ -126,6 +210,7 @@ export class Editor {
 
   private close(save: boolean) {
     cancelAnimationFrame(this.raf);
+    window.removeEventListener('keydown', this.keyHandler);
     this.overlay.remove();
 
     if (save) {

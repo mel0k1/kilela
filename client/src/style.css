@@ -521,3 +521,16 @@ button {
   gap: 8px;
   margin-bottom: 16px;
 }
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.btn:disabled:hover {
+  background: #f3e6c8;
+}
+
+.history-buttons {
+  margin-left: 8px;
+}
