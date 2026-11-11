@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import {
-  TICK_HZ, LOOK_PREFIX, MAX_NAME, MAX_CHAT, MAPS, getMap, validEmote,
+  TICK_HZ, LOOK_PREFIX, MAX_NAME, MAX_CHAT, MAPS, getMap, validEmote, TOYS, toyIndexByName,
   type ClientMsg,
 } from '../../shared/protocol';
 import { buildWorld, isBlockedTile } from '../../shared/world';
@@ -236,6 +236,25 @@ function handleChat(p: Player, text: string) {
     return;
   }
 
+  if (clean === '/toys' || clean.startsWith('/toys ')) {
+    const arg = clean.slice(5).trim();
+
+    if (!arg || arg === 'none' || arg === 'нет') {
+      applyToy(p, 0);
+      return;
+    }
+
+    const index = toyIndexByName(arg);
+
+    if (index > 0) {
+      applyToy(p, index);
+    } else {
+      send(p.ws!, { t: 'sys', text: `Не знаю такой предмет. Попробуй: ${TOYS.map(t => t.name).join(', ')}.` });
+    }
+
+    return;
+  }
+
   broadcast(p.map, { t: 'chat', id: p.id, text: clean });
 
   const room = getRoom(p.map);
@@ -247,6 +266,16 @@ function handleChat(p: Player, text: string) {
     setTimeout(() => {
       broadcast(bot.map, { t: 'chat', id: bot.id, text: reply });
     }, 900 + Math.random() * 1200);
+  }
+}
+
+function applyToy(p: Player, toy: number) {
+  p.toy = toy;
+  broadcast(p.map, { t: 'toys', id: p.id, toy });
+
+  if (p.ws) {
+    const label = toy > 0 && toy <= TOYS.length ? TOYS[toy - 1].label : '';
+    send(p.ws, { t: 'sys', text: toy > 0 ? `Теперь ты держишь: ${label}.` : 'Ты убрал предмет.' });
   }
 }
 
@@ -267,6 +296,7 @@ function handleHello(ws: WebSocket, msg: Extract<ClientMsg, { t: 'hello' }>): Pl
     dir: 0,
     emote: '',
     flying: false,
+    toy: 0,
     bot: false,
   };
 
@@ -274,17 +304,17 @@ function handleHello(ws: WebSocket, msg: Extract<ClientMsg, { t: 'hello' }>): Pl
   players.set(id, p);
   getRoom(map.id).add(p);
 
-  send(ws, { t: 'welcome', id, name, look, x: p.x, y: p.y, map: p.map, online: players.size - 1 });
+  send(ws, { t: 'welcome', id, name, look, x: p.x, y: p.y, map: p.map, online: players.size - 1, toy: p.toy });
 
   const room = getRoom(map.id);
 
   for (const other of room.players.values()) {
     if (other.id !== id) {
-      send(ws, { t: 'join', id: other.id, name: other.name, look: other.look, x: other.x, y: other.y, online: humanCount(map.id) });
+      send(ws, { t: 'join', id: other.id, name: other.name, look: other.look, x: other.x, y: other.y, online: humanCount(map.id), toy: other.toy });
     }
   }
 
-  broadcast(map.id, { t: 'join', id, name, look, x: p.x, y: p.y, online: humanCount(map.id) }, id);
+  broadcast(map.id, { t: 'join', id, name, look, x: p.x, y: p.y, online: humanCount(map.id), toy: p.toy }, id);
   return p;
 }
 
@@ -331,6 +361,15 @@ wss.on('connection', ws => {
       case 'chat':
         handleChat(player, msg.text);
         break;
+      case 'toys': {
+        const toy = Number(msg.toy);
+
+        if (Number.isInteger(toy) && toy >= 0 && toy <= TOYS.length) {
+          applyToy(player, toy);
+        }
+
+        break;
+      }
       case 'emote': {
         const action = String(msg.action || '').slice(0, 24);
 
@@ -405,6 +444,7 @@ const bot: Player = {
   dir: 0,
   emote: '',
   flying: false,
+  toy: 0,
   bot: true,
 };
 

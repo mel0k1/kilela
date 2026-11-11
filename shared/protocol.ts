@@ -36,7 +36,12 @@ export interface LookMsg {
   look: string;
 }
 
-export type ClientMsg = HelloMsg | PosMsg | ChatMsg | EmoteMsg | LocMsg | LookMsg;
+export interface ToysMsg {
+  t: 'toys';
+  toy: number;
+}
+
+export type ClientMsg = HelloMsg | PosMsg | ChatMsg | EmoteMsg | LocMsg | LookMsg | ToysMsg;
 
 export interface WelcomeMsg {
   t: 'welcome';
@@ -47,6 +52,7 @@ export interface WelcomeMsg {
   y: number;
   map: string;
   online: number;
+  toy: number;
 }
 
 export interface JoinMsg {
@@ -57,6 +63,7 @@ export interface JoinMsg {
   x: number;
   y: number;
   online: number;
+  toy: number;
 }
 
 export interface LeaveMsg {
@@ -95,6 +102,12 @@ export interface LookFromMsg {
   look: string;
 }
 
+export interface ToysFromMsg {
+  t: 'toys';
+  id: number;
+  toy: number;
+}
+
 export interface FixMsg {
   t: 'fix';
   x: number;
@@ -120,6 +133,7 @@ export type ServerMsg =
   | EmoteFromMsg
   | SwitchMsg
   | LookFromMsg
+  | ToysFromMsg
   | SysMsg
   | ErrMsg
   | FixMsg;
@@ -203,6 +217,48 @@ export const MAPS: MapDef[] = [
 
 export function getMap(id: string): MapDef {
   return MAPS.find(m => m.id === id) || MAPS[0];
+}
+
+export interface ToyDef {
+  name: string;
+  label: string;
+  aliases: string[];
+}
+
+export const TOYS: ToyDef[] = [
+  { name: 'hat-red', label: 'Колпак (красный)', aliases: ['колпак', 'шляпа'] },
+  { name: 'hat-green', label: 'Колпак (зелёный)', aliases: [] },
+  { name: 'hat-blue', label: 'Колпак (синий)', aliases: [] },
+  { name: 'hat-pink', label: 'Колпак (розовый)', aliases: [] },
+  { name: 'snowpony', label: 'Снегопони', aliases: ['снеговик', 'снегопони'] },
+  { name: 'gift', label: 'Подарок', aliases: ['подарок'] },
+  { name: 'gift-alt', label: 'Подарок (зелёный)', aliases: [] },
+  { name: 'teddy', label: 'Мишка', aliases: ['мишка', 'игрушка'] },
+  { name: 'teddy-santa', label: 'Мишка-Санта', aliases: ['санта'] },
+  { name: 'tree', label: 'Ёлочка', aliases: ['ёлка', 'елка'] },
+  { name: 'deer', label: 'Оленёнок', aliases: ['олень', 'оленёнок'] },
+  { name: 'deer-red', label: 'Оленёнок (носик)', aliases: [] },
+  { name: 'candy', label: 'Конфетки-рога', aliases: ['конфетки', 'конфета'] },
+  { name: 'bell', label: 'Колокольчик', aliases: ['колокольчик', 'бубенец'] },
+  { name: 'mistletoe', label: 'Омела', aliases: ['омела'] },
+  { name: 'cookie', label: 'Печенька', aliases: ['печенька', 'печенье'] },
+  { name: 'spider', label: 'Паучок', aliases: ['паук', 'паучок'] },
+  { name: 'star', label: 'Звёздочка', aliases: ['звезда', 'звёздочка'] },
+  { name: 'halo', label: 'Нимб', aliases: ['нимб'] },
+];
+
+export function toyIndexByName(raw: string): number {
+  const name = raw.trim().toLowerCase();
+
+  if (!name) return -1;
+
+  if (/^\d+$/.test(name)) {
+    const index = Number(name);
+    return index >= 1 && index <= TOYS.length ? index : -1;
+  }
+
+  const index = TOYS.findIndex(toy => toy.name === name || toy.aliases.includes(name));
+  return index >= 0 ? index + 1 : -1;
 }
 
 export function validEmote(action: string): boolean {

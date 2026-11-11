@@ -502,3 +502,22 @@ button {
   0%, 60% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+.toy-panel {
+  width: min(440px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.toy-hint {
+  font-size: 13px;
+  color: #8a7455;
+  margin-bottom: 14px;
+}
+
+.toy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}

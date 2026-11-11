@@ -81,6 +81,11 @@ export class Game {
     }
   }
 
+  setToy(toy: number) {
+    this.net.send({ t: 'toys', toy });
+    this.view.setEntityToy(this.myId, toy);
+  }
+
   private handleMsg(msg: Parameters<Parameters<Net['on']>[0]>[0]) {
     switch (msg.t) {
       case 'welcome': {
@@ -90,7 +95,7 @@ export class Game {
         this.cb.onOnline(msg.online);
         this.enterMap(msg.map);
         this.view.myEntityId = this.myId;
-        this.view.addEntity(this.myId, this.myName, this.myLook, this.myLookCode, this.myActor, this.playerX, this.playerY);
+        this.view.addEntity(this.myId, this.myName, this.myLook, this.myLookCode, this.myActor, this.playerX, this.playerY, msg.toy || 0);
         this.cb.onSys('Добро пожаловать в Килелу!');
         sfx.play('welcome');
         break;
@@ -105,7 +110,7 @@ export class Game {
         const look = buildPaletteLook(decodeLook(msg.look));
         const actor = new PonyActor();
         actor.setTarget('stand');
-        this.view.addEntity(msg.id, msg.name, look, msg.look, actor, msg.x, msg.y);
+        this.view.addEntity(msg.id, msg.name, look, msg.look, actor, msg.x, msg.y, msg.toy || 0);
         break;
       }
       case 'leave': {
@@ -159,6 +164,10 @@ export class Game {
           this.view.setEntityLook(msg.id, look, msg.look);
         }
 
+        break;
+      }
+      case 'toys': {
+        this.view.setEntityToy(msg.id, msg.toy || 0);
         break;
       }
       case 'sys':

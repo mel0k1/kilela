@@ -1,5 +1,6 @@
 import { el, clear } from './dom';
 import { sfx } from '../audio/sfx';
+import { TOYS } from '../../../shared/protocol';
 
 export interface HudCallbacks {
   onEmote(action: string): void;
@@ -151,6 +152,47 @@ export class Hud {
       this.cb.onEmote(action);
     });
     this.emoteButtons.set(action, button);
+  }
+
+  showToyPicker(pick: (toy: number) => void) {
+    if (document.querySelector('.toy-overlay')) return;
+
+    const overlay = el('div', 'overlay toy-overlay', document.body);
+    const panel = el('div', 'panel toy-panel', overlay);
+    const title = el('h2', 'editor-title', panel);
+    title.textContent = 'Предметы';
+    const hint = el('div', 'toy-hint', panel);
+    hint.textContent = 'Предмет пони держит в копыте. То же самое — команда /toys.';
+    const grid = el('div', 'toy-grid', panel);
+
+    const addOption = (label: string, toy: number) => {
+      const button = el('button', 'btn small toy-btn', grid) as HTMLButtonElement;
+      button.textContent = label;
+
+      button.addEventListener('click', () => {
+        sfx.play('pop');
+        overlay.remove();
+        pick(toy);
+      });
+    };
+
+    addOption('Убрать предмет', 0);
+
+    for (let i = 0; i < TOYS.length; i++) {
+      addOption(TOYS[i].label, i + 1);
+    }
+
+    const closeButton = el('button', 'btn', panel);
+    closeButton.textContent = 'Закрыть';
+    closeButton.addEventListener('click', () => {
+      sfx.play('click');
+      overlay.remove();
+    });
+    overlay.addEventListener('pointerdown', e => {
+      if (e.target === overlay) {
+        overlay.remove();
+      }
+    });
   }
 
   setMap(name: string) {

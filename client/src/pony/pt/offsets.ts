@@ -25,6 +25,15 @@ export const HEAD_ACCESSORY_OFFSETS: Point[] = createPoints([
   [0, -4], [0, -3],
 ]);
 
+export const EXTRA_ACCESSORY_OFFSETS: Point[] = createPoints([
+  [0, 9], [0, 0], [0, 0], [0, 1], [0, 2], [0, 2],
+  [0, 1], [0, 1], [0, 2], [0, 3], [0, 2], [0, 2],
+  [0, 3], [0, 1], [0, 1], [0, 1], [0, 9], [0, 3],
+  [0, 3], [0, 3], [0, 3], [0, 3], [0, 2], [0, 3],
+  [0, 3], [0, 3], [0, 2], [0, 3], [-1, 3], [0, 3],
+  [0, 3], [0, 3],
+]);
+
 function offsets(
   _index: number, cm: Pt, head: Pt, tail: Pt, wing: Pt, frontLeg: Pt, backLeg: Pt,
   backAccessory: Pt, chestAccessory: Pt,

@@ -68,6 +68,7 @@ interface EntityView {
   actor: PonyActor;
   look: PaletteLook;
   lookCode: string;
+  toy: number;
   sprite: Sprite;
   canvas: HTMLCanvasElement;
   label: Text;
@@ -368,11 +369,11 @@ export class WorldView {
     }
   }
 
-  addEntity(id: number, name: string, look: PaletteLook, lookCode: string, actor: PonyActor, x: number, y: number) {
+  addEntity(id: number, name: string, look: PaletteLook, lookCode: string, actor: PonyActor, x: number, y: number, toy = 0) {
     const canvas = document.createElement('canvas');
     canvas.width = PONY_WIDTH;
     canvas.height = 70;
-    drawPonyToCanvas(canvas, look, actor.state, false);
+    drawPonyToCanvas(canvas, look, actor.state, false, false, toy);
     const texture = Texture.from(canvas);
     const sprite = new Sprite(texture);
     sprite.anchor.set(0.5, 1);
@@ -385,7 +386,7 @@ export class WorldView {
     this.mainLayer.addChild(label);
 
     const view: EntityView = {
-      id, name, actor, look, lookCode, sprite, canvas, label,
+      id, name, actor, look, lookCode, toy, sprite, canvas, label,
       bubbleText: undefined, bubbleBg: undefined, bubbleTimer: 0,
       emoteSprite: undefined, emoteAnim: undefined, emoteFrame: 0, emoteFrameTime: 0, emoteTimer: 0,
       x, y, sx: x, sy: y, dir: 0,
@@ -488,6 +489,14 @@ export class WorldView {
 
     view.look = look;
     view.lookCode = lookCode;
+  }
+
+  setEntityToy(id: number, toy: number) {
+    const view = this.entities.get(id);
+
+    if (!view) return;
+
+    view.toy = toy;
   }
 
   showBubble(id: number, text: string) {
@@ -624,7 +633,7 @@ export class WorldView {
       view.actor.update(dt);
       this.placeEntityAtTile(view);
       const flipped = view.dir === 2;
-      drawPonyToCanvas(view.canvas, view.look, view.actor.state, flipped, view.swimming);
+      drawPonyToCanvas(view.canvas, view.look, view.actor.state, flipped, view.swimming, view.toy);
       (view.sprite.texture as Texture).source.update();
 
       if (view.splashSprite) {

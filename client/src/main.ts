@@ -10,6 +10,7 @@ import { MusicPlayer } from './audio/music';
 import { drawPonyToCanvas } from './pony/draw';
 import { preloadEmotes } from './pony/emotes';
 import { stand, trot } from './pony/pt/animations';
+import { toyIndexByName } from '../../shared/protocol';
 
 const MAP_SKY: Record<string, number> = {
   meadow: 0xa5dcf2,
@@ -76,6 +77,28 @@ function startGame(app: Application, name: string, look: Look) {
     onChatSend(text) {
       if (text === '/turn' || text === '/поворот') {
         game.sendEmote('turn');
+        return;
+      }
+
+      if (text === '/toys' || text === '/игрушки') {
+        hud.showToyPicker(toy => game.setToy(toy));
+        return;
+      }
+
+      if (text.startsWith('/toys ') || text.startsWith('/игрушки ')) {
+        const arg = text.slice(text.indexOf(' ') + 1).trim();
+        const toy = toyIndexByName(arg);
+        const none = !arg || arg === 'none' || arg === 'нет';
+
+        if (none) {
+          game.setToy(0);
+        } else if (toy > 0) {
+          game.setToy(toy);
+        } else {
+          hud.addSystem('Не знаю такой предмет. Открываю список: /toys');
+          hud.showToyPicker(t => game.setToy(t));
+        }
+
         return;
       }
 

@@ -5,8 +5,9 @@ import { defaultBodyFrame, defaultHeadAnimation, defaultHeadFrame } from './pt/a
 import { WHITE, SHADOW_COLOR, FAR_COLOR, clamp } from './pt/compat';
 import {
   cmOffsets, headOffsets, tailOffsets, wingOffsets, frontLegOffsets, backLegOffsets,
-  chestAccessoryOffsets, backAccessoryOffsets, HEAD_ACCESSORY_OFFSETS,
+  chestAccessoryOffsets, backAccessoryOffsets, HEAD_ACCESSORY_OFFSETS, EXTRA_ACCESSORY_OFFSETS,
 } from './pt/offsets';
+import { TOY_SPRITES } from './toys';
 import { EXPRESSION_PRESETS, type PaletteLook } from './look';
 import {
   PonyBatch, translateMat2D, rotateMat2D, scaleMat2D, type Mat2D,
@@ -284,7 +285,7 @@ function expressionBaseEyes(look: PaletteLook): [Eye, Eye] {
   return [expr ? expr.left : Eye.Neutral, expr ? expr.right : Eye.Neutral];
 }
 
-export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, flipped: boolean, swimming = false) {
+export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, flipped: boolean, swimming = false, toy = 0) {
   const anim = state.animation;
   const frame = getPonyAnimationFrame(anim.frames, state.animationFrame, defaultBodyFrame) as BodyAnimationFrame;
   const headAnim = state.headAnimation || defaultHeadAnimation;
@@ -310,6 +311,8 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
   const headFlip = headTurned ? !flipped : flipped;
   const noMane = !mane || mane.type === 0 || mane.type === 16;
   const hatOffset = HEAD_ACCESSORY_OFFSETS[clamp(mane ? mane.type : 0, 0, HEAD_ACCESSORY_OFFSETS.length - 1)];
+  const extraOffset = EXTRA_ACCESSORY_OFFSETS[clamp(mane ? mane.type : 0, 0, EXTRA_ACCESSORY_OFFSETS.length - 1)];
+  const toySprite = toy > 0 ? TOY_SPRITES[toy] : undefined;
   const chestOffset = at(chestAccessoryOffsets, body);
   const backOffset = at(backAccessoryOffsets, body);
   const sock = look.legAccessory;
@@ -458,6 +461,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
     drawSet(batch, sprites.behindManes as Sets, mane, 0, 0, WHITE);
   }
 
+  if (toySprite) {
+    drawSet(batch, sprites.extraAccessoriesBehind as Sets, toySprite, x + extraOffset.x, y + extraOffset.y, WHITE);
+  }
+
   const headSprite = headFlip ? sprites.head0 : sprites.head1;
   drawSet(batch, at(headSprite as Sets, frame.head), look.head, x, y, WHITE);
 
@@ -506,6 +513,10 @@ export function drawPony(batch: PonyBatch, look: PaletteLook, state: PonyState, 
 
   if (mane) {
     drawSet(batch, sprites.topManes as Sets, mane, x, y, WHITE);
+  }
+
+  if (toySprite) {
+    drawSet(batch, sprites.extraAccessories as Sets, toySprite, x + extraOffset.x, y + extraOffset.y, WHITE);
   }
 
   if (look.horn) {
@@ -563,8 +574,8 @@ export function bakePony(key: string, look: PaletteLook, state: PonyState, flipp
   return canvas;
 }
 
-export function drawPonyToCanvas(canvas: HTMLCanvasElement, look: PaletteLook, state: PonyState, flipped: boolean, swimming = false) {
+export function drawPonyToCanvas(canvas: HTMLCanvasElement, look: PaletteLook, state: PonyState, flipped: boolean, swimming = false, toy = 0) {
   const batch = new PonyBatch(canvas);
-  drawPony(batch, look, state, flipped, swimming);
+  drawPony(batch, look, state, flipped, swimming, toy);
   batch.flush();
 }
