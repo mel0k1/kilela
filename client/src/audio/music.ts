@@ -56,7 +56,7 @@ export class MusicPlayer {
     audio.loop = false;
     audio.volume = old ? 0 : this.volume;
     this.audio = audio;
-    this.loops = 3 + Math.floor(Math.random() * 3);
+    this.loops = 4 + Math.floor(Math.random() * 4);
 
     audio.addEventListener('ended', () => {
       if (this.audio !== audio) return;
